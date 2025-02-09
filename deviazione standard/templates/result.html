@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Risultati Statistici</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <!-- Add the fullscreen overlay container at the start of body -->
+    <div id="fullscreenOverlay" class="fullscreen-overlay">
+      <div class="close-fullscreen">&times;</div>
+      <img id="fullscreenImage" class="fullscreen-image" src="" alt="Fullscreen view">
+    </div>
+    
+    <div class="container">
+      <h1>Risultati dell'Analisi Statistica</h1>
+      
+      <div class="calcolo-info">
+        <h2>{{ nome }}</h2>
+        {% if note %}
+          <div class="note-box">
+            <h3>Note:</h3>
+            <p>{{ note }}</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="risultati">
+        {% if risultati %}
+          {% for risultato in risultati %}
+            <div class="result-card">
+              <h3>Serie: {{ risultato.serie }}</h3>
+              {% if risultato.statistiche %}
+              <div class="stats-grid">
+              <!-- Misure di Tendenza Centrale -->
+              <div class="stats-section">
+                <h4>Misure di Tendenza Centrale</h4>
+                <ul>
+                  <li>Media: <strong>{{ "%.4f"|format(risultato.statistiche.media) }}</strong></li>
+                  <li>Mediana: <strong>{{ "%.4f"|format(risultato.statistiche.mediana) }}</strong></li>
+                  <li>Moda: 
+                    <strong>
+                      {% if risultato.statistiche.moda is string or risultato.statistiche.moda is number %}
+                        {{ "%.4f"|format(risultato.statistiche.moda) }}
+                      {% else %}
+                        {% set formatted = [] %}
+                        {% for x in risultato.statistiche.moda %}
+                          {% if formatted.append("%.4f"|format(x)) %}{% endif %}
+                        {% endfor %}
+                        {{ formatted|join(", ") }}
+                      {% endif %}
+                    </strong>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Misure di Dispersione -->
+              <div class="stats-section">
+                <h4>Misure di Dispersione</h4>
+                <ul>
+                  <li>Deviazione Standard (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_popolazione) }}</strong></li>
+                  <li>Deviazione Standard (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_campione) }}</strong></li>
+                  <li>Varianza (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_popolazione) }}</strong></li>
+                  <li>Varianza (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_campione) }}</strong></li>
+                  <li>Range: <strong>{{ "%.4f"|format(risultato.statistiche.range) }}</strong></li>
+                </ul>
+              </div>
+
+              <!-- Quartili e Valori Estremi -->
+              <div class="stats-section">
+                <h4>Quartili e Valori Estremi</h4>
+                <ul>
+                  <li>Q1 (25° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q1) }}</strong></li>
+                  <li>Q2 (mediana): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q2) }}</strong></li>
+                  <li>Q3 (75° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q3) }}</strong></li>
+                  <li>Minimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.min) }}</strong></li>
+                  <li>Massimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.max) }}</strong></li>
+                </ul>
+              </div>
+              </div>
+              
+              <!-- Visualizzazioni Statistiche -->
+              {% if risultato.statistiche.plots %}
+              <div class="visualizations-section">
+                <h4>Visualizzazioni Statistiche</h4>
+                <div class="plots-grid">
+                  <!-- Histogram with KDE -->
+                  <div class="plot-card">
+                    <h5>Istogramma con KDE e Distribuzione Normale</h5>
+                    <img src="data:image/png;base64,{{ risultato.statistiche.plots.histogram }}" alt="Histogram">
+                  </div>
+                  
+                  <!-- Box Plot -->
+                  <div class="plot-card">
+                    <h5>Box Plot</h5>
+                    <img src="data:image/png;base64,{{ risultato.statistiche.plots.boxplot }}" alt="Box Plot">
+                  </div>
+                  
+                  <!-- Q-Q Plot -->
+                  <div class="plot-card">
+                    <h5>Q-Q Plot (Test di Normalità)</h5>
+                    <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot">
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+              {% else %}
+              <div class="error-message">
+                <p>Errore: Statistiche non disponibili per questa serie</p>
+              </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+        <div class="error-message">
+          <p>Nessun risultato disponibile. Assicurati che il file contenga dati numerici validi.</p>
+        </div>
+        {% endif %}
+      </div>
+      
+      <div class="actions button-group">
+        <a href="{{ url_for('index') }}" class="btn">
+          <i class="fas fa-plus"></i>
+          <span class="btn-text">Nuovo Calcolo</span>
+        </a>
+        <a href="{{ url_for('registro') }}" class="btn btn-secondary">
+          <i class="fas fa-list"></i>
+          <span class="btn-text">Vai al Registro</span>
+        </a>
+      </div>
+    </div>
+    
+    <script>
+      // Add fullscreen functionality
+      document.addEventListener('DOMContentLoaded', function() {
+        const overlay = document.getElementById('fullscreenOverlay');
+        const fullscreenImage = document.getElementById('fullscreenImage');
+        const closeBtn = document.querySelector('.close-fullscreen');
+        
+        // Make all plot images clickable
+        document.querySelectorAll('.plot-card img').forEach(img => {
+          img.addEventListener('click', function() {
+            fullscreenImage.src = this.src;
+            overlay.classList.add('active');
+          });
+        });
+        
+        // Close on clicking overlay or close button
+        overlay.addEventListener('click', function(e) {
+          if (e.target === overlay || e.target === closeBtn) {
+            overlay.classList.remove('active');
+          }
+        });
+        
+        // Close on ESC key
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && overlay.classList.contains('active')) {
+            overlay.classList.remove('active');
+          }
+        });
+      });
+
+      // Existing smooth scroll code
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+          e.preventDefault();
+          document.querySelector(this.getAttribute('href')).scrollIntoView({
+            behavior: 'smooth'
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analisi Statistica Dati</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Analisi Statistica Completa</h1>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="error-message">
+            {% for message in messages %}
+              <p>{{ message }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      
+      <div class="instructions">
+        <h2>📊 Come Utilizzare l'Applicazione</h2>
+        
+        <div class="steps-container">
+          <h3>🔍 1. Preparazione dei Dati</h3>
+          <ul>
+            <li>Prepara un file Excel (.xls o .xlsx)</li>
+            <li>Ogni colonna deve contenere una serie di dati numerici</li>
+            <li>Le intestazioni delle colonne devono essere descrittive</li>
+          </ul>
+
+          <h3>📈 2. Statistiche Calcolate</h3>
+          <div class="measures">
+            <div>
+              <h4>Misure di Tendenza Centrale</h4>
+              <ul>
+                <li>Media aritmetica</li>
+                <li>Mediana</li>
+                <li>Moda (valori più frequenti)</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4>Misure di Dispersione</h4>
+              <ul>
+                <li>Deviazione Standard (popolazione e campione)</li>
+                <li>Varianza (popolazione e campione)</li>
+                <li>Range (differenza max-min)</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4>Misure di Posizione</h4>
+              <ul>
+                <li>Quartili (Q1, Q2, Q3)</li>
+                <li>Valori minimi e massimi</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" enctype="multipart/form-data">
+        <h3>📝 Inserimento Dati</h3>
+        <div class="form-group">
+          <label for="nome">Nome del calcolo:</label>
+          <input type="text" 
+                 id="nome" 
+                 name="nome" 
+                 class="form-input" 
+                 placeholder="Es: Analisi Vendite 2023"
+                 title="Inserisci un nome descrittivo per identificare questo calcolo">
+        </div>
+        
+        <div class="form-group">
+          <label for="note">Note (opzionale):</label>
+          <textarea id="note" 
+                    name="note" 
+                    class="form-textarea" 
+                    placeholder="Inserisci eventuali note o dettagli aggiuntivi..."
+                    title="Aggiungi note o dettagli che potrebbero essere utili in seguito"></textarea>
+        </div>
+        
+        <div class="file-input">
+          <label for="file">Seleziona file Excel:</label>
+          <input type="file" 
+                 id="file"
+                 name="file" 
+                 accept=".xls,.xlsx" 
+                 required
+                 title="Seleziona un file Excel contenente i dati da analizzare">
+        </div>
+        
+        <div class="button-group">
+          <button type="submit" class="btn">
+            <i class="fas fa-calculator"></i>
+            <span class="btn-text">Calcola Statistiche</span>
+          </button>
+          <a href="{{ url_for('registro') }}" class="btn btn-secondary">
+            <i class="fas fa-list"></i>
+            <span class="btn-text">Visualizza Registro</span>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      // Animazione smooth scroll
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+          e.preventDefault();
+          document.querySelector(this.getAttribute('href')).scrollIntoView({
+            behavior: 'smooth'
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

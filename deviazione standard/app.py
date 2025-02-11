@@ -126,6 +126,7 @@ def index():
                     
                     # Prepara il dizionario delle statistiche
                     stats_dict = {
+                        'count': len(dati),  # Aggiungiamo il conteggio dei valori
                         'media': float(statistiche['media']),
                         'mediana': float(statistiche['mediana']),
                         'moda': [float(statistiche['moda'])] if isinstance(statistiche['moda'], (int, float)) else [float(x) for x in statistiche['moda']],

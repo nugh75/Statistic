@@ -189,6 +189,7 @@ class StatisticheCalcolatore:
         """
         StatisticheCalcolatore.valida_input(numeri)
         return {
+            "count": len(numeri),  # Aggiunto conteggio dei valori
             "media": StatisticheCalcolatore.calcola_media(numeri),
             "mediana": StatisticheCalcolatore.calcola_mediana(numeri),
             "moda": StatisticheCalcolatore.calcola_moda(numeri),

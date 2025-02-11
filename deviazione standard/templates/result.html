@@ -35,51 +35,58 @@
               <h3>Serie: {{ risultato.serie }}</h3>
               {% if risultato.statistiche %}
               <div class="stats-grid">
-              <!-- Misure di Tendenza Centrale -->
-              <div class="stats-section">
-                <h4>Misure di Tendenza Centrale</h4>
-                <ul>
-                  <li>Media: <strong>{{ "%.4f"|format(risultato.statistiche.media) }}</strong></li>
-                  <li>Mediana: <strong>{{ "%.4f"|format(risultato.statistiche.mediana) }}</strong></li>
-                  <li>Moda: 
-                    <strong>
-                      {% if risultato.statistiche.moda is string or risultato.statistiche.moda is number %}
-                        {{ "%.4f"|format(risultato.statistiche.moda) }}
-                      {% else %}
-                        {% set formatted = [] %}
-                        {% for x in risultato.statistiche.moda %}
-                          {% if formatted.append("%.4f"|format(x)) %}{% endif %}
-                        {% endfor %}
-                        {{ formatted|join(", ") }}
-                      {% endif %}
-                    </strong>
-                  </li>
-                </ul>
-              </div>
+                <!-- Information about the dataset -->
+                <div class="stats-section">
+                  <h4>Informazioni Dataset</h4>
+                  <ul>
+                    <li>Numero di valori: <strong>{{ risultato.statistiche.count }}</strong></li>
+                  </ul>
+                </div>
 
-              <!-- Misure di Dispersione -->
-              <div class="stats-section">
-                <h4>Misure di Dispersione</h4>
-                <ul>
-                  <li>Deviazione Standard (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_popolazione) }}</strong></li>
-                  <li>Deviazione Standard (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_campione) }}</strong></li>
-                  <li>Varianza (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_popolazione) }}</strong></li>
-                  <li>Varianza (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_campione) }}</strong></li>
-                  <li>Range: <strong>{{ "%.4f"|format(risultato.statistiche.range) }}</strong></li>
-                </ul>
-              </div>
+                <!-- Valori principali -->
+                <div class="stats-section">
+                  <h4>Valori Principali</h4>
+                  <ul>
+                    <li>Minimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.min) }}</strong></li>
+                    <li>Q1 (25° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q1) }}</strong></li>
+                    <li>Mediana (Q2): <strong>{{ "%.4f"|format(risultato.statistiche.mediana) }}</strong></li>
+                    <li>Media: <strong>{{ "%.4f"|format(risultato.statistiche.media) }}</strong></li>
+                    <li>Q3 (75° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q3) }}</strong></li>
+                    <li>Massimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.max) }}</strong></li>
+                  </ul>
+                </div>
 
-              <!-- Quartili e Valori Estremi -->
-              <div class="stats-section">
-                <h4>Quartili e Valori Estremi</h4>
-                <ul>
-                  <li>Q1 (25° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q1) }}</strong></li>
-                  <li>Q2 (mediana): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q2) }}</strong></li>
-                  <li>Q3 (75° percentile): <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q3) }}</strong></li>
-                  <li>Minimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.min) }}</strong></li>
-                  <li>Massimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.max) }}</strong></li>
-                </ul>
-              </div>
+                <!-- Misure di Dispersione -->
+                <div class="stats-section">
+                  <h4>Misure di Dispersione</h4>
+                  <ul>
+                    <li>Deviazione Standard (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_popolazione) }}</strong></li>
+                    <li>Deviazione Standard (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_campione) }}</strong></li>
+                    <li>Range: <strong>{{ "%.4f"|format(risultato.statistiche.range) }}</strong></li>
+                  </ul>
+                </div>
+
+                <!-- Altri Indicatori -->
+                <div class="stats-section">
+                  <h4>Altri Indicatori</h4>
+                  <ul>
+                    <li>Moda: 
+                      <strong>
+                        {% if risultato.statistiche.moda is string or risultato.statistiche.moda is number %}
+                          {{ "%.4f"|format(risultato.statistiche.moda) }}
+                        {% else %}
+                          {% set formatted = [] %}
+                          {% for x in risultato.statistiche.moda %}
+                            {% if formatted.append("%.4f"|format(x)) %}{% endif %}
+                          {% endfor %}
+                          {{ formatted|join(", ") }}
+                        {% endif %}
+                      </strong>
+                    </li>
+                    <li>Varianza (pop.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_popolazione) }}</strong></li>
+                    <li>Varianza (camp.): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_campione) }}</strong></li>
+                  </ul>
+                </div>
               </div>
               
               <!-- Visualizzazioni Statistiche -->

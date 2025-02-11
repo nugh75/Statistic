@@ -39,12 +39,41 @@
                   <details>
                     <summary>Statistiche Complete</summary>
                     <div class="stats-grid-compact">
-                      <!-- Misure di Tendenza Centrale -->
+                      <!-- Informazioni Dataset -->
                       <div class="stats-section">
-                        <h4>Tendenza Centrale</h4>
+                        <h4>Informazioni Dataset</h4>
                         <ul>
+                          <li>Numero di valori: <strong>{{ stats.count }}</strong></li>
+                        </ul>
+                      </div>
+
+                      <!-- Valori Principali -->
+                      <div class="stats-section">
+                        <h4>Valori Principali</h4>
+                        <ul>
+                          <li>Minimo: <strong>{{ "%.4f"|format(stats.min_max.min) }}</strong></li>
+                          <li>Q1 (25° percentile): <strong>{{ "%.4f"|format(stats.quartili.Q1) }}</strong></li>
+                          <li>Mediana (Q2): <strong>{{ "%.4f"|format(stats.mediana) }}</strong></li>
                           <li>Media: <strong>{{ "%.4f"|format(stats.media) }}</strong></li>
-                          <li>Mediana: <strong>{{ "%.4f"|format(stats.mediana) }}</strong></li>
+                          <li>Q3 (75° percentile): <strong>{{ "%.4f"|format(stats.quartili.Q3) }}</strong></li>
+                          <li>Massimo: <strong>{{ "%.4f"|format(stats.min_max.max) }}</strong></li>
+                        </ul>
+                      </div>
+
+                      <!-- Misure di Dispersione -->
+                      <div class="stats-section">
+                        <h4>Misure di Dispersione</h4>
+                        <ul>
+                          <li>Dev. Std. (pop.): <strong>{{ "%.4f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
+                          <li>Dev. Std. (camp.): <strong>{{ "%.4f"|format(stats.deviazione_standard_campione) }}</strong></li>
+                          <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
+                        </ul>
+                      </div>
+
+                      <!-- Altri Indicatori -->
+                      <div class="stats-section">
+                        <h4>Altri Indicatori</h4>
+                        <ul>
                           <li>Moda: 
                             <strong>
                               {% if stats.moda is string or stats.moda is number %}
@@ -58,30 +87,8 @@
                               {% endif %}
                             </strong>
                           </li>
-                        </ul>
-                      </div>
-
-                      <!-- Misure di Dispersione -->
-                      <div class="stats-section">
-                        <h4>Dispersione</h4>
-                        <ul>
-                          <li>Dev. Std. (pop.): <strong>{{ "%.4f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
-                          <li>Dev. Std. (camp.): <strong>{{ "%.4f"|format(stats.deviazione_standard_campione) }}</strong></li>
                           <li>Varianza (pop.): <strong>{{ "%.4f"|format(stats.varianza_popolazione) }}</strong></li>
                           <li>Varianza (camp.): <strong>{{ "%.4f"|format(stats.varianza_campione) }}</strong></li>
-                          <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
-                        </ul>
-                      </div>
-
-                      <!-- Quartili e Valori Estremi -->
-                      <div class="stats-section">
-                        <h4>Quartili e Estremi</h4>
-                        <ul>
-                          <li>Q1: <strong>{{ "%.4f"|format(stats.quartili.Q1) }}</strong></li>
-                          <li>Q2: <strong>{{ "%.4f"|format(stats.quartili.Q2) }}</strong></li>
-                          <li>Q3: <strong>{{ "%.4f"|format(stats.quartili.Q3) }}</strong></li>
-                          <li>Min: <strong>{{ "%.4f"|format(stats.min_max.min) }}</strong></li>
-                          <li>Max: <strong>{{ "%.4f"|format(stats.min_max.max) }}</strong></li>
                         </ul>
                       </div>
                     </div>

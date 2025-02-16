@@ -256,7 +256,7 @@ class StatisticheCalcolatore:
         return risultati
 
     @staticmethod
-    def calcola_correlazioni(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, Union[float, Dict[str, float]]]]:
+    def calcola_correlazioni(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, Dict[str, float]]]:
         """
         Calcola le correlazioni tra tutte le serie di dati utilizzando numpy.
         Gestisce serie di lunghezze diverse troncando alla lunghezza minima comune.
@@ -266,7 +266,8 @@ class StatisticheCalcolatore:
             serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
             
         Returns:
-            Dict: Matrice di correlazione con coefficienti e p-values
+            Dict: Matrice di correlazione con coefficienti e p-values strutturata come:
+                 {serie1: {serie2: {'coefficiente': float, 'p_value': float}}}
         """
         import numpy as np
         import pandas as pd
@@ -291,16 +292,23 @@ class StatisticheCalcolatore:
         for col1 in df.columns:
             result[col1] = {}
             for col2 in df.columns:
-                if col1 != col2:
-                    corr, p_value = stats.pearsonr(df[col1], df[col2])
+                try:
+                    if col1 != col2:
+                        corr, p_value = stats.pearsonr(df[col1], df[col2])
+                        result[col1][col2] = {
+                            'coefficiente': float(corr),  # Ensure float type
+                            'p_value': float(p_value)     # Ensure float type
+                        }
+                    else:
+                        result[col1][col2] = {
+                            'coefficiente': 1.0,
+                            'p_value': 0.0
+                        }
+                except Exception as e:
+                    print(f"Error calculating correlation between {col1} and {col2}: {str(e)}")
                     result[col1][col2] = {
-                        'coefficiente': corr,
-                        'p_value': p_value
-                    }
-                else:
-                    result[col1][col2] = {
-                        'coefficiente': 1.0,
-                        'p_value': 0.0
+                        'coefficiente': 0.0,
+                        'p_value': 1.0
                     }
         
         return result

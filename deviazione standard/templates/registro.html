@@ -196,7 +196,7 @@
                           {% for serie1, correlazioni in calcolo.statistiche.correlazioni.items() %}
                             {% if correlazioni is mapping %}
                               {% for serie2, values in correlazioni.items() %}
-                                {% if serie1 != serie2 and values.p_value < 0.05 %}
+                                {% if serie1 != serie2 and values is mapping and values.p_value < 0.05 %}
                                   {% set coef = values.coefficiente %}
                                   {% set strength_class = "moderate" %}
                                   {% if coef >= 0.9 %}
@@ -412,6 +412,11 @@
         padding: 0.5rem 1rem;
         font-size: 0.9rem;
       }
+
+      .select-for-export.selected {
+        background-color: #3498db;
+        color: white;
+      }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -541,12 +546,30 @@
               <i class="fas fa-grip-vertical series-handle"></i>
               <span>${nome} - ${serie}</span>
             </div>
-            <button class="series-remove" onclick="this.closest('.series-item').remove(); checkSelectedSeries();">
+            <button class="series-remove" onclick="removeSeriesItem(this, '${id}');">
               <i class="fas fa-times"></i>
             </button>
           `;
           selectedSeriesList.appendChild(item);
           checkSelectedSeries();
+        }
+
+        // Function to remove a series item and update button state
+        function removeSeriesItem(button, id) {
+          const item = button.closest('.series-item');
+          if (item) {
+            item.remove();
+            // Reset corresponding select button state
+            const selectBtn = document.querySelector(`.select-for-export[data-id="${id}"]`);
+            if (selectBtn) {
+              selectBtn.classList.remove('selected');
+              const btnText = selectBtn.querySelector('.btn-text');
+              const btnIcon = selectBtn.querySelector('i');
+              btnText.textContent = 'Seleziona per PDF';
+              btnIcon.className = 'fas fa-plus';
+            }
+            checkSelectedSeries();
+          }
         }
 
         // Check if there are selected series
@@ -558,11 +581,30 @@
         // Handle selection button clicks
         selectBtns.forEach(btn => {
           btn.addEventListener('click', () => {
-            addSeries(
-              btn.dataset.id,
-              btn.dataset.nome,
-              btn.dataset.serie
-            );
+            // Toggle selected state
+            btn.classList.toggle('selected');
+            const isSelected = btn.classList.contains('selected');
+            
+            // Update button text and icon
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('i');
+            if (isSelected) {
+              btnText.textContent = 'Selezionato per PDF';
+              btnIcon.className = 'fas fa-check';
+              addSeries(
+                btn.dataset.id,
+                btn.dataset.nome,
+                btn.dataset.serie
+              );
+            } else {
+              btnText.textContent = 'Seleziona per PDF';
+              btnIcon.className = 'fas fa-plus';
+              const existingItem = document.querySelector(`[data-series-id="${btn.dataset.id}"]`);
+              if (existingItem) {
+                existingItem.remove();
+                checkSelectedSeries();
+              }
+            }
           });
         });
 
@@ -607,6 +649,14 @@
         // Handle cancel
         cancelExportBtn.addEventListener('click', () => {
           selectedSeriesList.innerHTML = '';
+          // Reset all select buttons
+          selectBtns.forEach(btn => {
+            btn.classList.remove('selected');
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('i');
+            btnText.textContent = 'Seleziona per PDF';
+            btnIcon.className = 'fas fa-plus';
+          });
           checkSelectedSeries();
         });
 

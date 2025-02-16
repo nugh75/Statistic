@@ -28,6 +28,16 @@
         {% endif %}
       </div>
 
+      <!-- Sezione Matrice di Correlazione -->
+      {% if risultati and risultati[0].statistiche.plots.correlation %}
+      <div class="correlation-matrix-section">
+        <h3>Matrice di Correlazione tra Serie</h3>
+        <div class="plot-card full-width">
+          <img src="data:image/png;base64,{{ risultati[0].statistiche.plots.correlation }}" alt="Correlation Matrix">
+        </div>
+      </div>
+      {% endif %}
+
       <div class="risultati">
         {% if risultati %}
           {% for risultato in risultati %}
@@ -111,9 +121,37 @@
                     <h5>Q-Q Plot (Test di Normalità)</h5>
                     <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot">
                   </div>
+
+                  <!-- Correlation Matrix -->
+                  {% if risultato.statistiche.plots.correlation %}
+                  <div class="plot-card">
+                    <h5>Matrice di Correlazione</h5>
+                    <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix">
+                  </div>
+                  {% endif %}
                 </div>
               </div>
               {% endif %}
+
+              <!-- Correlazioni -->
+              {% if risultato.statistiche.correlazioni %}
+              <div class="correlations-section">
+                <h4>Correlazioni con altre serie</h4>
+                <div class="correlations-grid">
+                  {% for altra_serie, correlazione in risultato.statistiche.correlazioni.items() %}
+                    {% if altra_serie != risultato.serie %}
+                    <div class="correlation-item">
+                      <span class="correlation-label">{{ altra_serie }}:</span>
+                      <span class="correlation-value {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
+                        {{ "%.4f"|format(correlazione) }}
+                      </span>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              
               {% else %}
               <div class="error-message">
                 <p>Errore: Statistiche non disponibili per questa serie</p>

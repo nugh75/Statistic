@@ -201,3 +201,59 @@ class StatisticheCalcolatore:
             "quartili": StatisticheCalcolatore.calcola_quartili(numeri),
             "min_max": StatisticheCalcolatore.calcola_min_max(numeri)
         }
+
+    @staticmethod
+    def calcola_correlazioni(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, float]]:
+        """
+        Calcola le correlazioni tra tutte le serie di dati utilizzando numpy.
+        Gestisce serie di lunghezze diverse troncando alla lunghezza minima comune.
+        
+        Args:
+            serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
+            
+        Returns:
+            Dict: Matrice di correlazione come dizionario di dizionari
+        """
+        import numpy as np
+        import pandas as pd
+        
+        # Trova la lunghezza minima tra tutte le serie
+        min_length = min(len(values) for values in serie_dati.values())
+        
+        # Tronca tutte le serie alla lunghezza minima
+        adjusted_data = {
+            name: values[:min_length] 
+            for name, values in serie_dati.items()
+        }
+        
+        # Converti il dizionario in DataFrame
+        df = pd.DataFrame(adjusted_data)
+        
+        # Calcola la matrice di correlazione
+        corr_matrix = df.corr().to_dict()
+        
+        return corr_matrix
+
+    @staticmethod
+    def crea_heatmap_correlazione(correlazioni: Dict[str, Dict[str, float]], percorso_file: str) -> None:
+        """
+        Crea una heatmap delle correlazioni e la salva come immagine.
+        
+        Args:
+            correlazioni: Dizionario delle correlazioni
+            percorso_file: Percorso dove salvare l'immagine
+        """
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        
+        # Converti il dizionario in DataFrame
+        df_corr = pd.DataFrame(correlazioni)
+        
+        # Crea la heatmap
+        plt.figure(figsize=(12, 8))
+        sns.heatmap(df_corr, annot=True, cmap='coolwarm', vmin=-1, vmax=1, center=0)
+        plt.title('Matrice di Correlazione')
+        plt.tight_layout()
+        plt.savefig(percorso_file)
+        plt.close()

@@ -27,7 +27,7 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-def generate_plots(data, title):
+def generate_plots(data, title, all_series=None):
     plots = {}
     
     # Reset any existing plots
@@ -80,6 +80,57 @@ def generate_plots(data, title):
     
     return plots
 
+def generate_correlation_matrix(all_series):
+    """
+    Genera la matrice di correlazione per tutte le serie.
+    
+    Args:
+        all_series: Dizionario con nome serie come chiave e lista di valori come valore
+        
+    Returns:
+        str: Base64 encoding dell'immagine della matrice di correlazione
+    """
+    if len(all_series) > 1:
+        plt.clf()
+        fig, ax = plt.subplots(figsize=(10, 8))
+        
+        # Calcola la matrice di correlazione
+        series_data = {name: values for name, values in all_series.items() if len(values) > 0}
+        correlazioni = StatisticheCalcolatore.calcola_correlazioni(series_data)
+        
+        # Converti il dizionario di correlazioni in una matrice numpy
+        nomi_serie = list(series_data.keys())
+        matrice_correlazione = np.zeros((len(nomi_serie), len(nomi_serie)))
+        for i, serie1 in enumerate(nomi_serie):
+            for j, serie2 in enumerate(nomi_serie):
+                matrice_correlazione[i, j] = correlazioni[serie1][serie2]
+        
+        # Crea la heatmap
+        sns.heatmap(matrice_correlazione, 
+                   annot=True,
+                   cmap='coolwarm',
+                   vmin=-1, vmax=1,
+                   xticklabels=nomi_serie,
+                   yticklabels=nomi_serie,
+                   ax=ax,
+                   fmt='.2f')  # Formatta i numeri con 2 decimali
+        
+        ax.set_title('Matrice di Correlazione')
+        
+        # Ruota le etichette per una migliore leggibilità
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        
+        # Aggiusta il layout per evitare il taglio delle etichette
+        plt.tight_layout()
+        
+        # Salva il grafico di correlazione
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+        plt.close(fig)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    return None
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -110,23 +161,33 @@ def index():
                 return redirect(request.url)
             
             risultati = []
+            all_series = {}
             
+            # Prima passiamo attraverso le colonne per raccogliere tutti i dati validi
             for colonna in df.columns:
                 try:
                     dati = pd.to_numeric(df[colonna], errors='coerce').dropna().tolist()
-                    
-                    if not dati:
-                        print(f"[DEBUG] Colonna {colonna} saltata: nessun dato numerico valido")
-                        continue
-                    
-                    print(f"[DEBUG] Dati validi trovati: {len(dati)}")
-                    
+                    if dati:
+                        all_series[colonna] = dati
+                except Exception as e:
+                    print(f"[DEBUG] Errore nella conversione della colonna {colonna}: {str(e)}")
+
+            # Calcola la matrice di correlazione una sola volta
+            matrice_correlazione_img = None
+            correlazioni = None
+            if len(all_series) > 1:
+                matrice_correlazione_img = generate_correlation_matrix(all_series)
+                correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
+
+            # Ora processiamo ogni serie per le statistiche
+            for colonna, dati in all_series.items():
+                try:
                     # Calcola statistiche
                     statistiche = StatisticheCalcolatore.calcola_tutte_statistiche(dati)
                     
                     # Prepara il dizionario delle statistiche
                     stats_dict = {
-                        'count': len(dati),  # Aggiungiamo il conteggio dei valori
+                        'count': len(dati),
                         'media': float(statistiche['media']),
                         'mediana': float(statistiche['mediana']),
                         'moda': [float(statistiche['moda'])] if isinstance(statistiche['moda'], (int, float)) else [float(x) for x in statistiche['moda']],
@@ -146,39 +207,42 @@ def index():
                         }
                     }
                     
-                    # Genera i grafici
+                    # Genera i grafici individuali
                     plots = generate_plots(dati, colonna)
                     stats_dict['plots'] = plots
                     
-                    # Serializza i dati prima di salvarli
-                    try:
-                        stats_json = json.dumps(stats_dict)
-                        valori_json = json.dumps([float(x) for x in dati])
-                        
-                        # Crea il record nel database
-                        calcolo = Calcolo(
-                            nome=nome,
-                            risultato=float(statistiche['deviazione_standard_popolazione']),
-                            note=note,
-                            serie_nome=colonna,
-                            valori=valori_json,
-                            statistiche=stats_json
-                        )
-                        db.session.add(calcolo)
-                        
-                        # Aggiungi ai risultati per la visualizzazione
-                        risultati.append({
-                            'serie': colonna,
-                            'statistiche': stats_dict
-                        })
-                        
-                    except Exception as e:
-                        print(f"[DEBUG] Errore nella serializzazione dei dati: {str(e)}")
-                        raise
+                    # Aggiungi la matrice di correlazione al primo risultato
+                    if matrice_correlazione_img and len(risultati) == 0:
+                        stats_dict['plots']['correlation'] = matrice_correlazione_img
+                    
+                    # Aggiungi le correlazioni se disponibili
+                    if correlazioni:
+                        stats_dict['correlazioni'] = correlazioni[colonna]
+                    
+                    # Serializza i dati
+                    stats_json = json.dumps(stats_dict)
+                    valori_json = json.dumps(dati)
+                    
+                    # Crea il record nel database
+                    calcolo = Calcolo(
+                        nome=nome,
+                        risultato=float(statistiche['deviazione_standard_popolazione']),
+                        note=note,
+                        serie_nome=colonna,
+                        valori=valori_json,
+                        statistiche=stats_json
+                    )
+                    db.session.add(calcolo)
+                    
+                    # Aggiungi ai risultati per la visualizzazione
+                    risultati.append({
+                        'serie': colonna,
+                        'statistiche': stats_dict
+                    })
                     
                 except Exception as e:
-                    print(f"[DEBUG] Errore nell'elaborazione della colonna {colonna}: {str(e)}")
-                    flash(f"Errore nell'elaborazione della colonna {colonna}: {str(e)}")
+                    print(f"[DEBUG] Errore nell'elaborazione della serie {colonna}: {str(e)}")
+                    flash(f"Errore nell'elaborazione della serie {colonna}: {str(e)}")
             
             if not risultati:
                 flash("Nessun dato numerico valido trovato nel file.")

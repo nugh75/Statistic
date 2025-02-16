@@ -641,3 +641,93 @@ tr:hover {
 .instructions, form, .error-message {
     animation: fadeIn 0.5s ease-out;
 }
+
+/* Correlations section */
+.correlations-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.correlations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.correlation-item {
+    padding: 0.8rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.correlation-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.correlation-value {
+    font-family: monospace;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    background: #edf2f7;
+}
+
+.correlation-value.high-positive {
+    background: #c6f6d5;
+    color: #276749;
+}
+
+.correlation-value.high-negative {
+    background: #fed7d7;
+    color: #9b2c2c;
+}
+
+@media (max-width: 768px) {
+    .correlations-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Correlation Matrix Section */
+.correlation-matrix-section {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.correlation-matrix-section h3 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    font-size: 1.6rem;
+}
+
+.plot-card.full-width {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    transition: transform 0.2s ease-in-out;
+}
+
+.plot-card.full-width:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.plot-card.full-width img {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

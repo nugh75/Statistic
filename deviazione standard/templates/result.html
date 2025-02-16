@@ -32,8 +32,32 @@
       {% if risultati and risultati[0].statistiche.plots.correlation %}
       <div class="correlation-matrix-section">
         <h3>Matrice di Correlazione tra Serie</h3>
-        <div class="plot-card full-width">
-          <img src="data:image/png;base64,{{ risultati[0].statistiche.plots.correlation }}" alt="Correlation Matrix">
+        <div class="correlation-container">
+          <div class="correlation-plot">
+            <img src="data:image/png;base64,{{ risultati[0].statistiche.plots.correlation }}" alt="Correlation Matrix">
+          </div>
+          {% if risultati[0].statistiche.legenda %}
+          <div class="correlation-legend">
+            <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
+            <p class="legend-description">La matrice sopra utilizza lettere per rappresentare le serie di dati. Qui sotto trovi il significato di ogni lettera:</p>
+            <table class="legend-table">
+              <thead>
+                <tr>
+                  <th>Etichetta</th>
+                  <th>Nome Serie</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for lettera, nome in risultati[0].statistiche.legenda.items() %}
+                <tr>
+                  <td><strong>{{ lettera }}</strong></td>
+                  <td>{{ nome }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
         </div>
       </div>
       {% endif %}
@@ -121,14 +145,6 @@
                     <h5>Q-Q Plot (Test di Normalità)</h5>
                     <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot">
                   </div>
-
-                  <!-- Correlation Matrix -->
-                  {% if risultato.statistiche.plots.correlation %}
-                  <div class="plot-card">
-                    <h5>Matrice di Correlazione</h5>
-                    <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix">
-                  </div>
-                  {% endif %}
                 </div>
               </div>
               {% endif %}

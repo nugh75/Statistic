@@ -88,48 +88,39 @@ def generate_correlation_matrix(all_series):
         all_series: Dizionario con nome serie come chiave e lista di valori come valore
         
     Returns:
-        str: Base64 encoding dell'immagine della matrice di correlazione
+        tuple: (Base64 encoding dell'immagine della matrice di correlazione, dizionario della legenda)
     """
     if len(all_series) > 1:
         plt.clf()
-        fig, ax = plt.subplots(figsize=(10, 8))
         
         # Calcola la matrice di correlazione
         series_data = {name: values for name, values in all_series.items() if len(values) > 0}
         correlazioni = StatisticheCalcolatore.calcola_correlazioni(series_data)
         
-        # Converti il dizionario di correlazioni in una matrice numpy
-        nomi_serie = list(series_data.keys())
-        matrice_correlazione = np.zeros((len(nomi_serie), len(nomi_serie)))
-        for i, serie1 in enumerate(nomi_serie):
-            for j, serie2 in enumerate(nomi_serie):
-                matrice_correlazione[i, j] = correlazioni[serie1][serie2]
+        # Calcola le dimensioni ottimali in base al numero di variabili
+        n_vars = len(series_data)
+        figsize = (min(12, max(8, n_vars * 1.2)), min(8, max(6, n_vars * 1.2)))
         
-        # Crea la heatmap
-        sns.heatmap(matrice_correlazione, 
-                   annot=True,
-                   cmap='coolwarm',
-                   vmin=-1, vmax=1,
-                   xticklabels=nomi_serie,
-                   yticklabels=nomi_serie,
-                   ax=ax,
-                   fmt='.2f')  # Formatta i numeri con 2 decimali
-        
-        ax.set_title('Matrice di Correlazione')
-        
-        # Ruota le etichette per una migliore leggibilità
-        plt.xticks(rotation=45, ha='right')
-        plt.yticks(rotation=0)
-        
-        # Aggiusta il layout per evitare il taglio delle etichette
-        plt.tight_layout()
-        
-        # Salva il grafico di correlazione
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
-        plt.close(fig)
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
-    return None
+        # Crea il file temporaneo per la heatmap
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            # Genera la heatmap con etichette brevi e dimensioni calcolate
+            legenda = StatisticheCalcolatore.crea_heatmap_correlazione(
+                correlazioni, 
+                tmp.name, 
+                use_etichette_brevi=True,
+                figsize=figsize
+            )
+            
+            # Leggi l'immagine salvata
+            with open(tmp.name, 'rb') as f:
+                img_data = f.read()
+            
+            import os
+            os.unlink(tmp.name)  # Rimuovi il file temporaneo
+            
+            return base64.b64encode(img_data).decode('utf-8'), legenda
+    return None, {}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -175,8 +166,9 @@ def index():
             # Calcola la matrice di correlazione una sola volta
             matrice_correlazione_img = None
             correlazioni = None
+            legenda = {}
             if len(all_series) > 1:
-                matrice_correlazione_img = generate_correlation_matrix(all_series)
+                matrice_correlazione_img, legenda = generate_correlation_matrix(all_series)
                 correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
 
             # Ora processiamo ogni serie per le statistiche
@@ -214,6 +206,7 @@ def index():
                     # Aggiungi la matrice di correlazione al primo risultato
                     if matrice_correlazione_img and len(risultati) == 0:
                         stats_dict['plots']['correlation'] = matrice_correlazione_img
+                        stats_dict['legenda'] = legenda
                     
                     # Aggiungi le correlazioni se disponibili
                     if correlazioni:
@@ -274,6 +267,53 @@ def registro():
             except json.JSONDecodeError:
                 calcolo.statistiche = None
     return render_template('registro.html', calcoli=calcoli)
+
+@app.route('/esporta_pdf/<int:id>')
+def esporta_pdf(id):
+    calcolo = Calcolo.query.get_or_404(id)
+    
+    try:
+        # Carica le statistiche e i dati
+        statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+        serie_dati = json.loads(calcolo.valori) if calcolo.valori else []
+        
+        # Crea una directory temporanea per i file PDF
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Assicurati che le statistiche includano tutti i dati necessari
+            if 'plots' not in statistiche:
+                # Rigenera i grafici se mancano
+                plots = generate_plots(serie_dati, calcolo.serie_nome)
+                statistiche['plots'] = plots
+            
+            pdf_path = StatisticheCalcolatore.esporta_pdf(
+                calcolo.nome,
+                statistiche,
+                {calcolo.serie_nome: serie_dati},
+                temp_dir
+            )
+            
+            # Leggi il PDF generato
+            with open(pdf_path, 'rb') as f:
+                pdf_data = f.read()
+            
+            from flask import send_file
+            import io
+            
+            # Invia il PDF come risposta
+            return send_file(
+                io.BytesIO(pdf_data),
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=f'analisi_{calcolo.id}.pdf'
+            )
+            
+    except Exception as e:
+        import traceback
+        print(f"Errore durante l'esportazione del PDF: {str(e)}")
+        print(traceback.format_exc())  # Stampa lo stack trace completo
+        flash(f"Errore durante l'esportazione del PDF: {str(e)}")
+        return redirect(url_for('registro'))
 
 @app.route('/modifica/<int:id>', methods=['GET', 'POST'])
 def modifica_calcolo(id):

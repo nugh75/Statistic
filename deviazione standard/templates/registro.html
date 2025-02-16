@@ -119,6 +119,40 @@
                     <img src="data:image/png;base64,{{ stats.plots.qqplot }}" alt="Q-Q Plot">
                   </div>
                 </div>
+
+                <!-- Correlation Matrix in separate section -->
+                {% if calcolo.statistiche.plots.correlation %}
+                <div class="correlation-matrix-section">
+                  <h5>Matrice di Correlazione</h5>
+                  <div class="correlation-container">
+                    <div class="correlation-plot">
+                      <img src="data:image/png;base64,{{ calcolo.statistiche.plots.correlation }}" alt="Correlation Matrix">
+                    </div>
+                    {% if calcolo.statistiche.legenda %}
+                    <div class="correlation-legend">
+                      <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
+                      <p class="legend-description">La matrice sopra utilizza lettere per rappresentare le serie di dati. Qui sotto trovi il significato di ogni lettera:</p>
+                      <table class="legend-table">
+                        <thead>
+                          <tr>
+                            <th>Etichetta</th>
+                            <th>Nome Serie</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                        {% for lettera, nome in calcolo.statistiche.legenda.items() %}
+                          <tr>
+                            <td><strong>{{ lettera }}</strong></td>
+                            <td>{{ nome }}</td>
+                          </tr>
+                        {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endif %}
               </div>
               {% endif %}
             {% else %}
@@ -143,6 +177,10 @@
                title="Elimina">
               <i class="fas fa-trash"></i>
               <span class="btn-text">Elimina</span>
+            </a>
+            <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-export" title="Esporta PDF">
+              <i class="fas fa-file-pdf"></i>
+              <span class="btn-text">Esporta PDF</span>
             </a>
           </div>
         </div>

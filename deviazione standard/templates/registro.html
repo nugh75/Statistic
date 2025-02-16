@@ -27,9 +27,13 @@
           </div>
         </div>
         <div class="export-actions">
-          <button id="exportSelected" class="btn btn-export">
+          <button id="exportSelectedPDF" class="btn btn-export">
             <i class="fas fa-file-pdf"></i>
             <span class="btn-text">Esporta PDF</span>
+          </button>
+          <button id="exportSelectedHTML" class="btn btn-export">
+            <i class="fas fa-file-code"></i>
+            <span class="btn-text">Esporta HTML</span>
           </button>
           <button id="cancelExport" class="btn btn-secondary">
             <i class="fas fa-times"></i>
@@ -58,18 +62,13 @@
         {% for calcolo in calcoli %}
         <div class="calcolo-card">
           <div class="calcolo-header">
-            <!-- Move checkbox to left of title -->
             <div class="title-with-checkbox">
               <div class="selection-checkbox" style="display: none;">
                 <input type="checkbox" class="calc-select" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
               </div>
               <h3>{{ calcolo.nome }}</h3>
             </div>
-            <div class="card-actions">
-              <button class="btn btn-export select-for-export" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
-                <i class="fas fa-plus"></i>
-                <span class="btn-text">Seleziona per PDF</span>
-              </button>
+            <div class="card-metadata">
               <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
             </div>
           </div>
@@ -277,21 +276,23 @@
             {% endif %}
           </div>
 
-          <div class="actions button-group">
-            <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-edit" title="Modifica">
-              <i class="fas fa-edit"></i>
-              <span class="btn-text">Modifica</span>
-            </a>
-            <a href="{{ url_for('elimina_calcolo', id=calcolo.id) }}" class="btn btn-delete" 
-               onclick="return confirm('Sei sicuro di voler eliminare questo calcolo?')"
-               title="Elimina">
-              <i class="fas fa-trash"></i>
-              <span class="btn-text">Elimina</span>
-            </a>
-            <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-export" title="Esporta PDF">
-              <i class="fas fa-file-pdf"></i>
-              <span class="btn-text">Esporta PDF</span>
-            </a>
+          <div class="card-actions">
+            <div class="action-group">
+              <button class="btn btn-secondary select-for-export" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
+                <i class="fas fa-file-export"></i>
+                <span class="btn-text">Aggiungi all'Esportazione</span>
+              </button>
+            </div>
+            <div class="action-group">
+              <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-edit">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Modifica</span>
+              </a>
+              <a href="{{ url_for('elimina_calcolo', id=calcolo.id) }}" class="btn btn-delete" onclick="return confirm('Sei sicuro di voler eliminare questo calcolo?');">
+                <i class="fas fa-trash-alt"></i>
+                <span class="btn-text">Elimina</span>
+              </a>
+            </div>
           </div>
         </div>
         {% endfor %}
@@ -404,18 +405,29 @@
 
       .card-actions {
         display: flex;
+        justify-content: space-between;
         align-items: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .action-group {
+        display: flex;
         gap: 1rem;
       }
 
       .select-for-export {
-        padding: 0.5rem 1rem;
-        font-size: 0.9rem;
+        background-color: #2c3e50;
       }
 
       .select-for-export.selected {
         background-color: #3498db;
         color: white;
+      }
+
+      .select-for-export:hover {
+        background-color: #34495e;
       }
     </style>
 
@@ -565,8 +577,8 @@
               selectBtn.classList.remove('selected');
               const btnText = selectBtn.querySelector('.btn-text');
               const btnIcon = selectBtn.querySelector('i');
-              btnText.textContent = 'Seleziona per PDF';
-              btnIcon.className = 'fas fa-plus';
+              btnText.textContent = 'Aggiungi all\'Esportazione';
+              btnIcon.className = 'fas fa-file-export';
             }
             checkSelectedSeries();
           }
@@ -589,7 +601,7 @@
             const btnText = btn.querySelector('.btn-text');
             const btnIcon = btn.querySelector('i');
             if (isSelected) {
-              btnText.textContent = 'Selezionato per PDF';
+              btnText.textContent = 'Aggiunto all\'Esportazione';
               btnIcon.className = 'fas fa-check';
               addSeries(
                 btn.dataset.id,
@@ -597,8 +609,8 @@
                 btn.dataset.serie
               );
             } else {
-              btnText.textContent = 'Seleziona per PDF';
-              btnIcon.className = 'fas fa-plus';
+              btnText.textContent = 'Aggiungi all\'Esportazione';
+              btnIcon.className = 'fas fa-file-export';
               const existingItem = document.querySelector(`[data-series-id="${btn.dataset.id}"]`);
               if (existingItem) {
                 existingItem.remove();
@@ -606,6 +618,20 @@
               }
             }
           });
+        });
+
+        // Also update cancel button to reset all button states
+        cancelExportBtn.addEventListener('click', () => {
+          selectedSeriesList.innerHTML = '';
+          // Reset all select buttons
+          selectBtns.forEach(btn => {
+            btn.classList.remove('selected');
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('i');
+            btnText.textContent = 'Aggiungi all\'Esportazione';
+            btnIcon.className = 'fas fa-file-export';
+          });
+          checkSelectedSeries();
         });
 
         // Handle export
@@ -654,8 +680,8 @@
             btn.classList.remove('selected');
             const btnText = btn.querySelector('.btn-text');
             const btnIcon = btn.querySelector('i');
-            btnText.textContent = 'Seleziona per PDF';
-            btnIcon.className = 'fas fa-plus';
+            btnText.textContent = 'Aggiungi all\'Esportazione';
+            btnIcon.className = 'fas fa-file-export';
           });
           checkSelectedSeries();
         });
@@ -663,6 +689,52 @@
         // Initial check
         checkSelectedSeries();
       });
+
+      // Handle export actions
+      exportSelectedPDF.addEventListener('click', async () => {
+        await exportSelectedSeries('/esporta_pdf_multiplo', 'analisi_multiple.pdf');
+      });
+
+      exportSelectedHTML.addEventListener('click', async () => {
+        await exportSelectedSeries('/esporta_html_multiplo', 'report_analisi.zip');
+      });
+
+      async function exportSelectedSeries(endpoint, filename) {
+        const selectedSeries = Array.from(selectedSeriesList.children).map(item => item.dataset.seriesId);
+        if (selectedSeries.length === 0) {
+          alert('Seleziona almeno una serie da esportare');
+          return;
+        }
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              series: selectedSeries
+            })
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+          } else {
+            alert('Errore durante l\'esportazione');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Errore durante l\'esportazione');
+        }
+      }
     </script>
   </body>
 </html>

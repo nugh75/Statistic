@@ -1,4 +1,5 @@
 import json
+import os
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Set the backend before importing pyplot
@@ -7,9 +8,10 @@ import seaborn as sns
 import io
 import base64
 import tempfile
+import zipfile
 from scipy import stats
 import numpy as np
-from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file, abort
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
 
@@ -272,7 +274,9 @@ def registro():
 
 @app.route('/esporta_pdf/<int:id>')
 def esporta_pdf(id):
-    calcolo = Calcolo.query.get_or_404(id)
+    calcolo = db.session.get(Calcolo, id)
+    if calcolo is None:
+        return abort(404)
     
     try:
         # Carica le statistiche e i dati
@@ -331,7 +335,7 @@ def esporta_pdf_multiplo():
         # Recupera i calcoli nell'ordine specificato
         calcoli = []
         for id in series_ids:
-            calcolo = Calcolo.query.get(id)
+            calcolo = db.session.get(Calcolo, id)
             if calcolo:
                 calcoli.append(calcolo)
         
@@ -384,9 +388,86 @@ def esporta_pdf_multiplo():
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/esporta_html_multiplo', methods=['POST'])
+def esporta_html_multiplo():
+    try:
+        data = request.get_json()
+        if not data or 'series' not in data:
+            return jsonify({'error': 'Nessuna serie selezionata'}), 400
+        
+        series_ids = data['series']
+        if not series_ids:
+            return jsonify({'error': 'Lista serie vuota'}), 400
+        
+        # Recupera i calcoli nell'ordine specificato
+        calcoli = []
+        for id in series_ids:
+            calcolo = db.session.get(Calcolo, id)
+            if calcolo:
+                calcoli.append(calcolo)
+        
+        if not calcoli:
+            return jsonify({'error': 'Nessun calcolo trovato'}), 404
+        
+        # Prepara i dati per l'HTML
+        series_data = {}
+        all_statistics = []
+        
+        for calcolo in calcoli:
+            statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+            serie_dati = json.loads(calcolo.valori) if calcolo.valori else []
+            
+            # Assicurati che le statistiche includano tutti i dati necessari
+            if 'plots' not in statistiche:
+                plots = generate_plots(serie_dati, calcolo.serie_nome)
+                statistiche['plots'] = plots
+            
+            series_data[calcolo.serie_nome] = serie_dati
+            statistiche['nome_calcolo'] = calcolo.nome
+            statistiche['serie_nome'] = calcolo.serie_nome
+            statistiche['note'] = calcolo.note
+            all_statistics.append(statistiche)
+        
+        # Crea una directory temporanea per l'HTML e le immagini
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Genera l'HTML con tutte le serie nell'ordine specificato
+            html_path = StatisticheCalcolatore.esporta_html_multiplo(
+                "Analisi Multiple",
+                all_statistics,
+                series_data,
+                temp_dir
+            )
+            
+            # Crea un file zip contenente l'HTML e le immagini
+            zip_path = os.path.join(temp_dir, 'report.zip')
+            report_dir = os.path.dirname(html_path)
+            
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for root, dirs, files in os.walk(report_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arc_name = os.path.relpath(file_path, report_dir)
+                        zipf.write(file_path, arc_name)
+            
+            # Invia il file zip
+            return send_file(
+                zip_path,
+                mimetype='application/zip',
+                as_attachment=True,
+                download_name='report_analisi.zip'
+            )
+            
+    except Exception as e:
+        import traceback
+        print(f"Errore durante l'esportazione HTML: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/modifica/<int:id>', methods=['GET', 'POST'])
 def modifica_calcolo(id):
-    calcolo = Calcolo.query.get_or_404(id)
+    calcolo = db.session.get(Calcolo, id)
+    if calcolo is None:
+        return abort(404)
     if request.method == 'POST':
         calcolo.nome = request.form['nome']
         calcolo.note = request.form['note']
@@ -396,7 +477,9 @@ def modifica_calcolo(id):
 
 @app.route('/elimina/<int:id>')
 def elimina_calcolo(id):
-    calcolo = Calcolo.query.get_or_404(id)
+    calcolo = db.session.get(Calcolo, id)
+    if calcolo is None:
+        return abort(404)
     db.session.delete(calcolo)
     db.session.commit()
     return redirect(url_for('registro'))

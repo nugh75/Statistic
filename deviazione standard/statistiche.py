@@ -948,3 +948,497 @@ class StatisticheCalcolatore:
         except Exception as e:
             print(f"Errore durante la generazione del PDF multiplo: {str(e)}")
             raise
+
+    @staticmethod
+    def esporta_html_multiplo(titolo: str, statistiche_multiple: List[dict], serie_dati: Dict[str, List[float]], 
+                            percorso_output: str) -> str:
+        """
+        Crea un file HTML contenente multiple analisi statistiche nell'ordine specificato.
+        I grafici vengono salvati come file separati nella cartella images/.
+        
+        Args:
+            titolo: Titolo generale del documento
+            statistiche_multiple: Lista di dizionari contenenti le statistiche per ogni serie
+            serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
+            percorso_output: Percorso dove salvare i file HTML e immagini
+            
+        Returns:
+            str: Percorso del file HTML generato
+        """
+        import os
+        from datetime import datetime
+        import base64
+        from pathlib import Path
+
+        # Crea directory per il report
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_dir = os.path.join(percorso_output, f"report_{timestamp}")
+        images_dir = os.path.join(report_dir, "images")
+        os.makedirs(images_dir, exist_ok=True)
+
+        # Copia il CSS in una directory locale
+        css_content = """
+        /* Reset e stili di base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Header e titoli */
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 2.5rem;
+            font-size: 2.5rem;
+            font-weight: 500;
+            position: relative;
+            padding-bottom: 1rem;
+        }
+        
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(to right, #3498db, #2980b9);
+            border-radius: 2px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-bottom: 1rem;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        h4 {
+            color: #3498db;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.3rem;
+        }
+        
+        .data {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        
+        .toc {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .toc h2 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        
+        .toc-content {
+            padding-left: 1rem;
+        }
+        
+        .toc-content a {
+            color: #3498db;
+            text-decoration: none;
+            line-height: 1.8;
+        }
+        
+        .toc-content a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+        
+        .serie-analysis {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .note {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border-left: 3px solid #3498db;
+        }
+        
+        .stats-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .stats-section {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .stats-section h4 {
+            color: #3498db;
+            margin-bottom: 1rem;
+        }
+        
+        .stats-section ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .stats-section li {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .stats-section strong {
+            float: right;
+            color: #2c3e50;
+        }
+        
+        .visualizations-section {
+            margin-top: 2rem;
+        }
+        
+        .plots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .plot-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .plot-card h5 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .plot-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .correlation-section {
+            margin-top: 3rem;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .correlation-legend {
+            margin-top: 2rem;
+        }
+        
+        .legend-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .legend-table th,
+        .legend-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .legend-table th {
+            background: #f8f9fa;
+            font-weight: 500;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .container {
+                max-width: none;
+                padding: 0;
+            }
+            
+            .serie-analysis,
+            .correlation-section {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            
+            .plot-card img {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .stats-grid-compact {
+                grid-template-columns: 1fr;
+            }
+            
+            .plots-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        """
+        
+        with open(os.path.join(report_dir, "style.css"), "w", encoding='utf-8') as f:
+            f.write(css_content)
+
+        # Template HTML
+        html_template = """
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{title}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+            <link rel="stylesheet" href="style.css">
+        </head>
+        <body>
+            <div class="container">
+                <h1>{title}</h1>
+                <p class="data">Data: {date}</p>
+                
+                <div class="toc">
+                    <h2>Indice delle Serie</h2>
+                    <div class="toc-content">
+                        {toc}
+                    </div>
+                </div>
+
+                <div class="serie-analyses">
+                    {analyses}
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Genera indice
+        toc_items = []
+        analyses_html = []
+        
+        for i, stats in enumerate(statistiche_multiple, 1):
+            serie_id = f"serie_{i}"
+            toc_items.append(f'<p><a href="#{serie_id}">Serie {i}: {stats["serie_nome"]} - {stats["nome_calcolo"]}</a></p>')
+            
+            # Salva i grafici come file separati
+            plots_html = []
+            if 'plots' in stats:
+                for plot_name, plot_data in stats['plots'].items():
+                    if plot_name != 'correlation':
+                        img_filename = f"{serie_id}_{plot_name}.png"
+                        img_path = os.path.join(images_dir, img_filename)
+                        
+                        # Decodifica e salva l'immagine
+                        img_data = base64.b64decode(plot_data)
+                        with open(img_path, 'wb') as f:
+                            f.write(img_data)
+                        
+                        plot_title = {
+                            'histogram': 'Istogramma con KDE e Distribuzione Normale',
+                            'boxplot': 'Box Plot',
+                            'qqplot': 'Q-Q Plot (Test di Normalità)'
+                        }.get(plot_name, plot_name.title())
+                        
+                        plots_html.append(f"""
+                        <div class="plot-card">
+                            <h5>{plot_title}</h5>
+                            <img src="images/{img_filename}" alt="{plot_title}">
+                        </div>
+                        """)
+
+            # Genera HTML per la singola serie
+            serie_html = f"""
+            <div id="{serie_id}" class="serie-analysis">
+                <h2>Serie {i}: {stats['nome_calcolo']}</h2>
+                <p class="serie-nome">Nome Serie: {stats['serie_nome']}</p>
+                
+                {'<p class="note">Note: ' + stats['note'] + '</p>' if stats.get('note') else ''}
+                
+                <div class="stats-container">
+                    <h3>Statistiche</h3>
+                    <div class="stats-grid-compact">
+                        <!-- Statistiche principali -->
+                        {StatisticheCalcolatore._genera_html_statistiche(stats)}
+                    </div>
+                </div>
+
+                <div class="visualizations-section">
+                    <h3>Visualizzazioni</h3>
+                    <div class="plots-grid">
+                        {''.join(plots_html)}
+                    </div>
+                </div>
+            </div>
+            """
+            analyses_html.append(serie_html)
+
+        # Gestisci matrice di correlazione se presente
+        if (len(statistiche_multiple) > 1 and 'plots' in statistiche_multiple[0] and 
+            'correlation' in statistiche_multiple[0]['plots']):
+            
+            # Salva matrice di correlazione
+            correlation_filename = "correlation_matrix.png"
+            correlation_path = os.path.join(images_dir, correlation_filename)
+            correlation_data = base64.b64decode(statistiche_multiple[0]['plots']['correlation'])
+            with open(correlation_path, 'wb') as f:
+                f.write(correlation_data)
+            
+            # Aggiungi sezione correlazioni
+            correlation_html = f"""
+            <div class="correlation-section">
+                <h2>Matrice di Correlazione tra Serie</h2>
+                <div class="correlation-plot">
+                    <img src="images/{correlation_filename}" alt="Correlation Matrix">
+                </div>
+            """
+            
+            # Aggiungi legenda se presente
+            if 'legenda' in statistiche_multiple[0]:
+                correlation_html += """
+                <div class="correlation-legend">
+                    <h3>Legenda delle Serie</h3>
+                    <table class="legend-table">
+                        <thead>
+                            <tr>
+                                <th>Etichetta</th>
+                                <th>Nome Serie</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                """
+                for lettera, nome in statistiche_multiple[0]['legenda'].items():
+                    correlation_html += f"""
+                            <tr>
+                                <td><strong>{lettera}</strong></td>
+                                <td>{nome}</td>
+                            </tr>
+                    """
+                correlation_html += """
+                        </tbody>
+                    </table>
+                </div>
+                """
+            
+            correlation_html += "</div>"
+            analyses_html.append(correlation_html)
+
+        # Assembla il documento HTML finale
+        html_content = html_template.format(
+            title=titolo,
+            date=datetime.now().strftime('%d/%m/%Y %H:%M'),
+            toc='\n'.join(toc_items),
+            analyses='\n'.join(analyses_html)
+        )
+
+        # Salva il file HTML
+        html_path = os.path.join(report_dir, "report.html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
+        return html_path
+
+    @staticmethod
+    def _genera_html_statistiche(stats: dict) -> str:
+        """Helper method per generare l'HTML delle statistiche."""
+        html_sections = []
+        
+        # Informazioni Dataset
+        html_sections.append(f"""
+        <div class="stats-section">
+            <h4>Informazioni Dataset</h4>
+            <ul>
+                <li>Numero di valori: <strong>{stats['count']}</strong></li>
+            </ul>
+        </div>
+        """)
+        
+        # Valori Principali
+        html_sections.append(f"""
+        <div class="stats-section">
+            <h4>Valori Principali</h4>
+            <ul>
+                <li>Minimo: <strong>{stats['min_max']['min']:.4f}</strong></li>
+                <li>Q1 (25° percentile): <strong>{stats['quartili']['Q1']:.4f}</strong></li>
+                <li>Mediana (Q2): <strong>{stats['mediana']:.4f}</strong></li>
+                <li>Media: <strong>{stats['media']:.4f}</strong></li>
+                <li>Q3 (75° percentile): <strong>{stats['quartili']['Q3']:.4f}</strong></li>
+                <li>Massimo: <strong>{stats['min_max']['max']:.4f}</strong></li>
+            </ul>
+        </div>
+        """)
+        
+        # Misure di Dispersione
+        html_sections.append(f"""
+        <div class="stats-section">
+            <h4>Misure di Dispersione</h4>
+            <ul>
+                <li>Dev. Std. (pop.): <strong>{stats['deviazione_standard_popolazione']:.6f}</strong></li>
+                <li>Dev. Std. (camp.): <strong>{stats['deviazione_standard_campione']:.6f}</strong></li>
+                <li>Range: <strong>{stats['range']:.4f}</strong></li>
+            </ul>
+        </div>
+        """)
+        
+        # Altri Indicatori
+        moda_format = f"{stats['moda']:.4f}" if isinstance(stats['moda'], (int, float)) else \
+                     ", ".join(f"{x:.4f}" for x in stats['moda'])
+        
+        html_sections.append(f"""
+        <div class="stats-section">
+            <h4>Altri Indicatori</h4>
+            <ul>
+                <li>Moda: <strong>{moda_format}</strong></li>
+                <li>Varianza (pop.): <strong>{stats['varianza_popolazione']:.6f}</strong></li>
+                <li>Varianza (camp.): <strong>{stats['varianza_campione']:.6f}</strong></li>
+            </ul>
+        </div>
+        """)
+        
+        return "\n".join(html_sections)

@@ -883,3 +883,178 @@ tr:hover {
         margin-top: 1rem;
     }
 }
+
+/* Significant Correlations Section */
+.significant-correlations {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.significant-correlations h4 {
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+}
+
+.correlations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.correlation-item {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    border-left: 4px solid #95a5a6;
+}
+
+.correlation-item.high-positive {
+    border-left-color: #2ecc71;
+    background: #f0fff4;
+}
+
+.correlation-item.high-negative {
+    border-left-color: #e74c3c;
+    background: #fff5f5;
+}
+
+.correlation-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.correlation-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.correlation-value {
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.correlation-significance {
+    font-size: 0.9rem;
+    color: #666;
+    font-family: monospace;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .correlations-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .correlation-item {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Correlation Strength Guide */
+.correlation-strength-guide {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.correlation-strength-guide p {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.correlation-strength-guide ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.5rem;
+}
+
+.correlation-strength-guide li {
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+/* Correlation Item Styles */
+.correlation-item {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: transform 0.2s;
+}
+
+.correlation-item:hover {
+    transform: translateY(-2px);
+}
+
+.correlation-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.correlation-pair {
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.correlation-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.strength-text {
+    font-weight: 500;
+}
+
+.significance-text {
+    font-family: monospace;
+}
+
+/* Correlation Strength Classes */
+.very-strong-positive {
+    background-color: #c6f6d5;
+    color: #276749;
+    border-left: 4px solid #2f855a;
+}
+
+.strong-positive {
+    background-color: #d4f5d4;
+    color: #2f6b2f;
+    border-left: 4px solid #38a169;
+}
+
+.moderate-positive {
+    background-color: #e6ffe6;
+    color: #387038;
+    border-left: 4px solid #48bb78;
+}
+
+.very-strong-negative {
+    background-color: #fed7d7;
+    color: #9b2c2c;
+    border-left: 4px solid #c53030;
+}
+
+.strong-negative {
+    background-color: #fdd;
+    color: #933;
+    border-left: 4px solid #e53e3e;
+}
+
+.moderate-negative {
+    background-color: #fff2f2;
+    color: #994444;
+    border-left: 4px solid #fc8181;
+}

@@ -18,11 +18,33 @@
     <div class="container">
       <h1>Registro dei Calcoli Statistici</h1>
       
+      <!-- Bulk delete controls -->
+      <div class="bulk-actions">
+        <button id="toggleSelection" class="btn btn-secondary">
+          <i class="fas fa-check-square"></i>
+          <span class="btn-text">Seleziona</span>
+        </button>
+        <button id="selectAll" class="btn btn-secondary" style="display: none;">
+          <i class="fas fa-check-double"></i>
+          <span class="btn-text">Seleziona Tutto</span>
+        </button>
+        <button id="deleteSelected" class="btn btn-delete" style="display: none;">
+          <i class="fas fa-trash"></i>
+          <span class="btn-text">Elimina Selezionati</span>
+        </button>
+      </div>
+
       <div class="registro">
         {% for calcolo in calcoli %}
         <div class="calcolo-card">
           <div class="calcolo-header">
-            <h3>{{ calcolo.nome }}</h3>
+            <!-- Move checkbox to left of title -->
+            <div class="title-with-checkbox">
+              <div class="selection-checkbox" style="display: none;">
+                <input type="checkbox" class="calc-select" data-id="{{ calcolo.id }}">
+              </div>
+              <h3>{{ calcolo.nome }}</h3>
+            </div>
             <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
           </div>
           
@@ -64,8 +86,8 @@
                       <div class="stats-section">
                         <h4>Misure di Dispersione</h4>
                         <ul>
-                          <li>Dev. Std. (pop.): <strong>{{ "%.4f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
-                          <li>Dev. Std. (camp.): <strong>{{ "%.4f"|format(stats.deviazione_standard_campione) }}</strong></li>
+                          <li>Dev. Std. (pop.): <strong>{{ "%.6f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
+                          <li>Dev. Std. (camp.): <strong>{{ "%.6f"|format(stats.deviazione_standard_campione) }}</strong></li>
                           <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
                         </ul>
                       </div>
@@ -87,8 +109,8 @@
                               {% endif %}
                             </strong>
                           </li>
-                          <li>Varianza (pop.): <strong>{{ "%.4f"|format(stats.varianza_popolazione) }}</strong></li>
-                          <li>Varianza (camp.): <strong>{{ "%.4f"|format(stats.varianza_campione) }}</strong></li>
+                          <li>Varianza (pop.): <strong>{{ "%.6f"|format(stats.varianza_popolazione) }}</strong></li>
+                          <li>Varianza (camp.): <strong>{{ "%.6f"|format(stats.varianza_campione) }}</strong></li>
                         </ul>
                       </div>
                     </div>
@@ -128,6 +150,68 @@
                     <div class="correlation-plot">
                       <img src="data:image/png;base64,{{ calcolo.statistiche.plots.correlation }}" alt="Correlation Matrix">
                     </div>
+
+                    <!-- Significant Correlations Section -->
+                    <div class="significant-correlations">
+                      <h4>Correlazioni Statisticamente Significative (p < 0.05)</h4>
+                      <div class="correlation-strength-guide">
+                        <p>Interpretazione della forza delle correlazioni:</p>
+                        <ul>
+                          <li><span class="very-strong-positive">Molto forte positiva (≥ 0.9)</span></li>
+                          <li><span class="strong-positive">Forte positiva (0.7 - 0.9)</span></li>
+                          <li><span class="moderate-positive">Moderata positiva (0.5 - 0.7)</span></li>
+                          <li><span class="moderate-negative">Moderata negativa (-0.7 - -0.5)</span></li>
+                          <li><span class="strong-negative">Forte negativa (-0.9 - -0.7)</span></li>
+                          <li><span class="very-strong-negative">Molto forte negativa (≤ -0.9)</span></li>
+                        </ul>
+                      </div>
+                      <div class="correlations-grid">
+                        {% if calcolo.statistiche.correlazioni is mapping %}
+                          {% for serie1, correlazioni in calcolo.statistiche.correlazioni.items() %}
+                            {% if correlazioni is mapping %}
+                              {% for serie2, values in correlazioni.items() %}
+                                {% if serie1 != serie2 and values.p_value < 0.05 %}
+                                  {% set coef = values.coefficiente %}
+                                  {% set strength_class = "moderate" %}
+                                  {% if coef >= 0.9 %}
+                                    {% set strength_class = "very-strong-positive" %}
+                                    {% set strength_text = "Molto forte positiva" %}
+                                  {% elif coef >= 0.7 %}
+                                    {% set strength_class = "strong-positive" %}
+                                    {% set strength_text = "Forte positiva" %}
+                                  {% elif coef >= 0.5 %}
+                                    {% set strength_class = "moderate-positive" %}
+                                    {% set strength_text = "Moderata positiva" %}
+                                  {% elif coef <= -0.9 %}
+                                    {% set strength_class = "very-strong-negative" %}
+                                    {% set strength_text = "Molto forte negativa" %}
+                                  {% elif coef <= -0.7 %}
+                                    {% set strength_class = "strong-negative" %}
+                                    {% set strength_text = "Forte negativa" %}
+                                  {% elif coef <= -0.5 %}
+                                    {% set strength_class = "moderate-negative" %}
+                                    {% set strength_text = "Moderata negativa" %}
+                                  {% endif %}
+                                  <div class="correlation-item {{ strength_class }}">
+                                    <div class="correlation-info">
+                                      <span class="correlation-pair">{{ serie1 }} ↔ {{ serie2 }}</span>
+                                      <span class="correlation-value">
+                                        {{ "%.3f"|format(values.coefficiente) }}
+                                      </span>
+                                    </div>
+                                    <div class="correlation-details">
+                                      <span class="strength-text">{{ strength_text }}</span>
+                                      <span class="significance-text">p = {{ "%.4f"|format(values.p_value) }}</span>
+                                    </div>
+                                  </div>
+                                {% endif %}
+                              {% endfor %}
+                            {% endif %}
+                          {% endfor %}
+                        {% endif %}
+                      </div>
+                    </div>
+
                     {% if calcolo.statistiche.legenda %}
                     <div class="correlation-legend">
                       <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
@@ -195,6 +279,44 @@
       </div>
     </div>
 
+    <style>
+      .bulk-actions {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 1rem;
+      }
+      
+      .selection-checkbox {
+        display: inline-block;
+        margin-right: 1rem;
+        vertical-align: middle;
+      }
+      
+      .selection-checkbox input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+      }
+      
+      .title-with-checkbox {
+        display: flex;
+        align-items: center;
+      }
+      
+      .title-with-checkbox h3 {
+        margin: 0;
+      }
+      
+      .calcolo-card {
+        position: relative;
+      }
+      
+      /* Improve checkbox visibility */
+      input[type="checkbox"] {
+        accent-color: #3498db;
+      }
+    </style>
+
     <script>
       // Add fullscreen functionality
       document.addEventListener('DOMContentLoaded', function() {
@@ -221,6 +343,74 @@
         document.addEventListener('keydown', function(e) {
           if (e.key === 'Escape' && overlay.classList.contains('active')) {
             overlay.classList.remove('active');
+          }
+        });
+      });
+
+      // Add multi-delete functionality
+      document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('toggleSelection');
+        const selectAllBtn = document.getElementById('selectAll');
+        const deleteBtn = document.getElementById('deleteSelected');
+        const checkboxes = document.querySelectorAll('.selection-checkbox');
+        let selectionMode = false;
+
+        toggleBtn.addEventListener('click', function() {
+          selectionMode = !selectionMode;
+          checkboxes.forEach(cb => cb.style.display = selectionMode ? 'inline-block' : 'none');
+          selectAllBtn.style.display = selectionMode ? 'block' : 'none';
+          deleteBtn.style.display = selectionMode ? 'block' : 'none';
+          toggleBtn.querySelector('.btn-text').textContent = selectionMode ? 'Annulla' : 'Seleziona';
+          if (!selectionMode) {
+            // Clear all selections when exiting selection mode
+            document.querySelectorAll('.calc-select').forEach(cb => cb.checked = false);
+          }
+        });
+
+        // Add select all functionality
+        selectAllBtn.addEventListener('click', function() {
+          const allCheckboxes = document.querySelectorAll('.calc-select');
+          const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+          
+          allCheckboxes.forEach(cb => {
+            cb.checked = !allChecked;
+          });
+          
+          selectAllBtn.querySelector('.btn-text').textContent = 
+            allChecked ? 'Seleziona Tutto' : 'Deseleziona Tutto';
+        });
+
+        deleteBtn.addEventListener('click', async function() {
+          const selected = Array.from(document.querySelectorAll('.calc-select:checked'))
+                               .map(cb => cb.dataset.id);
+          
+          if (selected.length === 0) {
+            alert('Seleziona almeno un calcolo da eliminare');
+            return;
+          }
+
+          if (!confirm(`Sei sicuro di voler eliminare ${selected.length} calcoli?`)) {
+            return;
+          }
+
+          try {
+            const response = await fetch('/elimina_multipli', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ids: selected })
+            });
+
+            if (response.ok) {
+              // Reload page after successful deletion
+              window.location.reload();
+            } else {
+              alert('Errore durante l\'eliminazione dei calcoli');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Errore durante l\'eliminazione dei calcoli');
           }
         });
       });

@@ -1,6 +1,11 @@
 import math
 from collections import Counter
 from typing import List, Dict, Union, Tuple, Optional
+import base64
+from io import BytesIO
+import PIL.Image
+from reportlab.platypus import Image
+from reportlab.lib.units import inch
 
 class StatisticheCalcolatore:
     @staticmethod
@@ -251,19 +256,21 @@ class StatisticheCalcolatore:
         return risultati
 
     @staticmethod
-    def calcola_correlazioni(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, float]]:
+    def calcola_correlazioni(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, Union[float, Dict[str, float]]]]:
         """
         Calcola le correlazioni tra tutte le serie di dati utilizzando numpy.
         Gestisce serie di lunghezze diverse troncando alla lunghezza minima comune.
+        Calcola anche la significatività statistica (p-value) per ogni correlazione.
         
         Args:
             serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
             
         Returns:
-            Dict: Matrice di correlazione come dizionario di dizionari
+            Dict: Matrice di correlazione con coefficienti e p-values
         """
         import numpy as np
         import pandas as pd
+        from scipy import stats
         
         # Trova la lunghezza minima tra tutte le serie
         min_length = min(len(values) for values in serie_dati.values())
@@ -277,13 +284,29 @@ class StatisticheCalcolatore:
         # Converti il dizionario in DataFrame
         df = pd.DataFrame(adjusted_data)
         
-        # Calcola la matrice di correlazione
-        corr_matrix = df.corr().to_dict()
+        # Dizionario per memorizzare correlazioni e p-values
+        result = {}
         
-        return corr_matrix
+        # Calcola correlazioni e p-values per ogni coppia di serie
+        for col1 in df.columns:
+            result[col1] = {}
+            for col2 in df.columns:
+                if col1 != col2:
+                    corr, p_value = stats.pearsonr(df[col1], df[col2])
+                    result[col1][col2] = {
+                        'coefficiente': corr,
+                        'p_value': p_value
+                    }
+                else:
+                    result[col1][col2] = {
+                        'coefficiente': 1.0,
+                        'p_value': 0.0
+                    }
+        
+        return result
 
     @staticmethod
-    def crea_heatmap_correlazione(correlazioni: Dict[str, Dict[str, float]], percorso_file: str, use_etichette_brevi: bool = True, 
+    def crea_heatmap_correlazione(correlazioni: Dict[str, Dict[str, Dict[str, float]]], percorso_file: str, use_etichette_brevi: bool = True, 
                                  figsize: Tuple[int, int] = (12, 8)) -> Dict[str, str]:
         """
         Crea una heatmap delle correlazioni e la salva come immagine.
@@ -302,7 +325,14 @@ class StatisticheCalcolatore:
         import pandas as pd
         import string
         
-        df_corr = pd.DataFrame(correlazioni)
+        # Estrai solo i coefficienti di correlazione dal dizionario
+        df_data = {}
+        for serie1, corr_dict in correlazioni.items():
+            df_data[serie1] = {}
+            for serie2, values in corr_dict.items():
+                df_data[serie1][serie2] = values['coefficiente']
+        
+        df_corr = pd.DataFrame(df_data)
         
         # Crea mappatura etichette usando lettere dell'alfabeto
         legenda = {}
@@ -368,111 +398,324 @@ class StatisticheCalcolatore:
             return etichetta[:max_len-2] + '..'
 
     @staticmethod
+    def base64_to_image(base64_str: str) -> Image:
+        """Convert base64 string to ReportLab Image object."""
+        try:
+            # Decode base64 to bytes
+            img_data = base64.b64decode(base64_str)
+            
+            # Create a BytesIO object
+            img_buffer = BytesIO(img_data)
+            
+            # Open with PIL to verify image and get size
+            pil_img = PIL.Image.open(img_buffer)
+            width, height = pil_img.size
+            
+            # Create a new BytesIO for the final image
+            final_buffer = BytesIO()
+            pil_img.save(final_buffer, format='PNG')
+            final_buffer.seek(0)
+            
+            # Create ReportLab Image
+            img = Image(final_buffer)
+            
+            # Scale image while maintaining aspect ratio
+            aspect = height / width
+            img.drawWidth = 6 * inch
+            img.drawHeight = 6 * inch * aspect
+            
+            return img
+        except Exception as e:
+            print(f"Error processing image: {str(e)}")
+            return None
+
+    @staticmethod
     def esporta_pdf(nome_analisi: str, statistiche: dict, serie_dati: Dict[str, List[float]], 
                     percorso_output: str) -> str:
-        """
-        Esporta l'analisi completa in un file PDF.
-        
-        Args:
-            nome_analisi: Nome dell'analisi
-            statistiche: Dizionario con tutte le statistiche
-            serie_dati: Dati originali
-            percorso_output: Cartella dove salvare il PDF
-            
-        Returns:
-            str: Percorso del file PDF creato
-        """
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
+        from reportlab.lib.colors import HexColor
         import os
         from datetime import datetime
-        import tempfile
         import base64
-        
-        # Crea il nome del file
+        from io import BytesIO
+        import PIL.Image
+
+        # Material Design Blue Colors
+        primary_color = HexColor('#2196F3')
+        secondary_color = HexColor('#1976D2')
+        text_color = HexColor('#212121')
+
+        # Create custom styles
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(
+            name='MaterialTitle',
+            parent=styles['Title'],
+            textColor=secondary_color,
+            spaceAfter=30,
+            fontSize=24,
+            leading=30
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialHeading1',
+            parent=styles['Heading1'],
+            textColor=primary_color,
+            fontSize=18,
+            spaceAfter=16
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialHeading2',
+            parent=styles['Heading2'],
+            textColor=primary_color,
+            fontSize=16,
+            spaceAfter=12
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialNormal',
+            parent=styles['Normal'],
+            textColor=text_color,
+            fontSize=11,
+            spaceAfter=8
+        ))
+
+        # Create PDF with proper margins
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         pdf_path = os.path.join(percorso_output, f"analisi_{timestamp}.pdf")
-        
-        # Crea una directory temporanea per le immagini
-        with tempfile.TemporaryDirectory() as temp_img_dir:
-            # Inizializza il documento
-            doc = SimpleDocTemplate(pdf_path, pagesize=letter)
-            styles = getSampleStyleSheet()
-            elements = []
-            
-            # Titolo
-            elements.append(Paragraph(f"Analisi Statistica: {nome_analisi}", styles['Title']))
-            elements.append(Spacer(1, 12))
-            
-            # Data
-            elements.append(Paragraph(f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
-            elements.append(Spacer(1, 12))
-            
-            # Statistiche principali
-            elements.append(Paragraph("Statistiche Principali", styles['Heading1']))
-            data = []
-            for k, v in statistiche.items():
-                if k not in ['plots', 'legenda']:  # Escludiamo le immagini e la legenda
-                    if isinstance(v, dict):
-                        # Gestisci dizionari annidati
-                        for sub_k, sub_v in v.items():
-                            if isinstance(sub_v, (int, float)):
-                                data.append([f"{k} - {sub_k}", f"{sub_v:.4f}"])
-                    elif isinstance(v, (int, float)):
-                        data.append([k, f"{v:.4f}"])
-                    else:
-                        data.append([k, str(v)])
-            
-            if data:
-                table = Table(data)
-                table.setStyle([
-                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('PADDING', (0, 0), (-1, -1), 6),
-                ])
-                elements.append(table)
-                elements.append(Spacer(1, 12))
-            
-            # Grafici
-            if 'plots' in statistiche:
-                elements.append(Paragraph("Visualizzazioni", styles['Heading1']))
-                elements.append(Spacer(1, 12))
-                
-                img_paths = []  # Lista per tenere traccia dei file temporanei
-                
-                for plot_name, plot_data in statistiche['plots'].items():
-                    # Salva l'immagine base64 come file temporaneo
-                    temp_img_path = os.path.join(temp_img_dir, f"{plot_name}.png")
-                    with open(temp_img_path, 'wb') as f:
-                        f.write(base64.b64decode(plot_data))
-                    img_paths.append(temp_img_path)
+
+        # Use wider page margins for better readability
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=letter,
+            leftMargin=inch*0.75,
+            rightMargin=inch*0.75,
+            topMargin=inch*0.75,
+            bottomMargin=inch*0.75
+        )
+        elements = []
+
+        # Header
+        elements.append(Paragraph(f"Analisi Statistica: {nome_analisi}", styles['MaterialTitle']))
+        elements.append(Paragraph(f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['MaterialNormal']))
+        elements.append(Spacer(1, 20))
+
+        # Statistics Table with improved layout
+        elements.append(Paragraph("Statistiche Principali", styles['MaterialHeading1']))
+        elements.append(Spacer(1, 10))
+
+        # Prepare table data with wrapped text
+        data = []
+        headers = [["Misura", "Valore"]]
+        table_data = []
+
+        for k, v in statistiche.items():
+            if k not in ['plots', 'legenda']:
+                if isinstance(v, dict):
+                    for sub_k, sub_v in v.items():
+                        if isinstance(sub_v, (int, float)):
+                            # Break long measurement names with word wrapping
+                            measure = Paragraph(f"{k} - {sub_k}", styles['MaterialNormal'])
+                            value = Paragraph(f"{sub_v:.4f}", styles['MaterialNormal'])
+                            table_data.append([measure, value])
+                elif isinstance(v, (int, float)):
+                    measure = Paragraph(k, styles['MaterialNormal'])
+                    value = Paragraph(f"{v:.4f}", styles['MaterialNormal'])
+                    table_data.append([measure, value])
+                else:
+                    measure = Paragraph(k, styles['MaterialNormal'])
+                    value = Paragraph(str(v), styles['MaterialNormal'])
+                    table_data.append([measure, value])
+
+        data = headers + table_data
+        if data:
+            # Increased column widths and added word wrapping
+            table = Table(data, colWidths=[4.5*inch, 2.5*inch], rowHeights=None)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('TOPPADDING', (0, 0), (-1, 0), 12),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F5F5F5')]),
+                ('TEXTCOLOR', (0, 1), (-1, -1), text_color),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('PADDING', (0, 0), (-1, -1), 12),  # Increased padding
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical centering
+                ('WORDWRAP', (0, 0), (-1, -1), True),    # Enable word wrapping
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+
+        # Plots
+        if 'plots' in statistiche:
+            elements.append(Paragraph("Visualizzazioni Statistiche", styles['MaterialHeading1']))
+            elements.append(Spacer(1, 15))
+
+            plot_titles = {
+                'histogram': 'Istogramma con KDE e Distribuzione Normale',
+                'boxplot': 'Box Plot',
+                'qqplot': 'Q-Q Plot (Test di Normalità)'
+            }
+
+            # Add individual plots
+            for plot_name, plot_data in statistiche['plots'].items():
+                if plot_name != 'correlation':
+                    elements.append(Paragraph(plot_titles.get(plot_name, plot_name.title()), 
+                                           styles['MaterialHeading2']))
+                    elements.append(Spacer(1, 8))
                     
-                    # Aggiungi un titolo per il grafico
-                    elements.append(Paragraph(plot_name.title(), styles['Heading2']))
-                    elements.append(Spacer(1, 6))
-                    
-                    # Aggiungi l'immagine al PDF
-                    img = Image(temp_img_path, width=6*inch, height=4*inch)
+                    img = StatisticheCalcolatore.base64_to_image(plot_data)
+                    if img:
+                        elements.append(img)
+                        elements.append(Spacer(1, 20))
+
+            # Add correlation matrix if available
+            if 'correlation' in statistiche['plots']:
+                elements.append(Paragraph("Matrice di Correlazione", styles['MaterialHeading2']))
+                elements.append(Spacer(1, 8))
+                
+                img = StatisticheCalcolatore.base64_to_image(statistiche['plots']['correlation'])
+                if img:
                     elements.append(img)
-                    elements.append(Spacer(1, 12))
-                
-                # Se c'è una legenda per le correlazioni
-                if 'legenda' in statistiche and statistiche['legenda']:
-                    elements.append(Paragraph("Legenda Correlazioni", styles['Heading2']))
-                    legend_data = [[k, v] for k, v in statistiche['legenda'].items()]
-                    if legend_data:
-                        legend_table = Table(legend_data)
-                        legend_table.setStyle([
-                            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                            ('PADDING', (0, 0), (-1, -1), 6),
-                        ])
-                        elements.append(legend_table)
-            
-            # Genera il PDF
+                    elements.append(Spacer(1, 15))
+
+                # Add correlation legend if available
+                if 'legenda' in statistiche:
+                    elements.append(Paragraph("Legenda delle Serie", styles['MaterialHeading2']))
+                    elements.append(Spacer(1, 8))
+                    
+                    legend_data = [["Etichetta", "Nome Serie"]] + \
+                                [[k, v] for k, v in statistiche['legenda'].items()]
+                    
+                    legend_table = Table(legend_data, colWidths=[1.5*inch, 4.5*inch])
+                    legend_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F5F5F5')]),
+                        ('TEXTCOLOR', (0, 1), (-1, -1), text_color),
+                        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                        ('PADDING', (0, 0), (-1, -1), 8),
+                    ]))
+                    elements.append(legend_table)
+
+            # Add correlation strength guide
+            if 'correlazioni' in statistiche:
+                elements.append(Paragraph("Correlazioni Statisticamente Significative (p < 0.05)", styles['MaterialHeading2']))
+                elements.append(Spacer(1, 8))
+
+                # Add strength guide
+                guide_data = [["Forza della Correlazione", "Range"]]
+                guide_rows = [
+                    ["Molto forte positiva", "≥ 0.9"],
+                    ["Forte positiva", "0.7 - 0.9"],
+                    ["Moderata positiva", "0.5 - 0.7"],
+                    ["Moderata negativa", "-0.7 - -0.5"],
+                    ["Forte negativa", "-0.9 - -0.7"],
+                    ["Molto forte negativa", "≤ -0.9"]
+                ]
+                guide_table = Table([["Guida Interpretazione Correlazioni"]], colWidths=[7*inch])
+                guide_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('PADDING', (0, 0), (-1, 0), 8),
+                ]))
+                elements.append(guide_table)
+                elements.append(Spacer(1, 8))
+
+                strength_table = Table(guide_data + guide_rows, colWidths=[3.5*inch, 3.5*inch])
+                strength_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), HexColor('#f8f9fa')),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('PADDING', (0, 0), (-1, -1), 8),
+                ]))
+                elements.append(strength_table)
+                elements.append(Spacer(1, 15))
+
+                # Add significant correlations
+                significant_data = [["Serie 1", "Serie 2", "Coefficiente", "P-value", "Forza"]]
+                significant_rows = []
+
+                for serie1, correlazioni in statistiche['correlazioni'].items():
+                    if isinstance(correlazioni, dict):
+                        for serie2, values in correlazioni.items():
+                            if (serie1 != serie2 and 
+                                isinstance(values, dict) and 
+                                'coefficiente' in values and 
+                                'p_value' in values and 
+                                values['p_value'] < 0.05):
+                                
+                                coef = values['coefficiente']
+                                strength = ""
+                                bg_color = colors.white
+
+                                if abs(coef) >= 0.9:
+                                    strength = "Molto forte " + ("positiva" if coef > 0 else "negativa")
+                                    bg_color = HexColor('#c6f6d5' if coef > 0 else '#fed7d7')
+                                elif abs(coef) >= 0.7:
+                                    strength = "Forte " + ("positiva" if coef > 0 else "negativa")
+                                    bg_color = HexColor('#d4f5d4' if coef > 0 else '#fdd')
+                                elif abs(coef) >= 0.5:
+                                    strength = "Moderata " + ("positiva" if coef > 0 else "negativa")
+                                    bg_color = HexColor('#e6ffe6' if coef > 0 else '#fff2f2')
+
+                                if strength:  # Solo correlazioni almeno moderate
+                                    significant_rows.append([
+                                        serie1,
+                                        serie2,
+                                        f"{values['coefficiente']:.3f}",
+                                        f"{values['p_value']:.4f}",
+                                        strength,
+                                        bg_color
+                                    ])
+
+                if significant_rows:
+                    # Sort by absolute correlation coefficient
+                    significant_rows.sort(key=lambda x: abs(float(x[2])), reverse=True)
+                    
+                    # Remove background color from data before creating table
+                    table_data = significant_data + [[row[0], row[1], row[2], row[3], row[4]] for row in significant_rows]
+                    
+                    table = Table(table_data, colWidths=[1.4*inch, 1.4*inch, 1.2*inch, 1.2*inch, 1.8*inch])
+                    
+                    # Create style with background colors
+                    style = [
+                        ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 10),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('PADDING', (0, 0), (-1, -1), 8),
+                    ]
+                    
+                    # Add background colors for each row
+                    for i, row in enumerate(significant_rows, 1):
+                        style.append(('BACKGROUND', (0, i), (-1, i), row[5]))
+                    
+                    table.setStyle(TableStyle(style))
+                    elements.append(table)
+                else:
+                    elements.append(Paragraph("Nessuna correlazione statisticamente significativa trovata.", 
+                                           styles['MaterialNormal']))
+
+                elements.append(Spacer(1, 20))
+
+        try:
+            # Build the PDF
             doc.build(elements)
-            
-        return pdf_path
+            return pdf_path
+        except Exception as e:
+            print(f"Errore durante la generazione del PDF: {str(e)}")
+            raise

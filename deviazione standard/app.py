@@ -8,7 +8,7 @@ import io
 import base64
 from scipy import stats
 import numpy as np
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
 
@@ -93,7 +93,7 @@ def generate_correlation_matrix(all_series):
     if len(all_series) > 1:
         plt.clf()
         
-        # Calcola la matrice di correlazione
+        # Calcola la matrice di correlazione con i p-values
         series_data = {name: values for name, values in all_series.items() if len(values) > 0}
         correlazioni = StatisticheCalcolatore.calcola_correlazioni(series_data)
         
@@ -106,7 +106,7 @@ def generate_correlation_matrix(all_series):
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
             # Genera la heatmap con etichette brevi e dimensioni calcolate
             legenda = StatisticheCalcolatore.crea_heatmap_correlazione(
-                correlazioni, 
+                correlazioni,
                 tmp.name, 
                 use_etichette_brevi=True,
                 figsize=figsize
@@ -120,6 +120,7 @@ def generate_correlation_matrix(all_series):
             os.unlink(tmp.name)  # Rimuovi il file temporaneo
             
             return base64.b64encode(img_data).decode('utf-8'), legenda
+            
     return None, {}
 
 @app.route('/', methods=['GET', 'POST'])
@@ -331,6 +332,27 @@ def elimina_calcolo(id):
     db.session.delete(calcolo)
     db.session.commit()
     return redirect(url_for('registro'))
+
+@app.route('/elimina_multipli', methods=['POST'])
+def elimina_multipli():
+    try:
+        data = request.get_json()
+        if not data or 'ids' not in data:
+            return jsonify({'error': 'Nessun ID fornito'}), 400
+        
+        ids = data['ids']
+        if not ids:
+            return jsonify({'error': 'Lista ID vuota'}), 400
+        
+        # Delete all calcoli with the given IDs
+        Calcolo.query.filter(Calcolo.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Errore durante l'eliminazione multipla: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

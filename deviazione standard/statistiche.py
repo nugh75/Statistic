@@ -719,3 +719,224 @@ class StatisticheCalcolatore:
         except Exception as e:
             print(f"Errore durante la generazione del PDF: {str(e)}")
             raise
+
+    @staticmethod
+    def esporta_pdf_multiplo(titolo: str, statistiche_multiple: List[dict], serie_dati: Dict[str, List[float]], 
+                            percorso_output: str) -> str:
+        """
+        Crea un PDF contenente multiple analisi statistiche nell'ordine specificato.
+        
+        Args:
+            titolo: Titolo generale del documento
+            statistiche_multiple: Lista di dizionari contenenti le statistiche per ogni serie
+            serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
+            percorso_output: Percorso dove salvare il PDF
+            
+        Returns:
+            str: Percorso del file PDF generato
+        """
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib.colors import HexColor
+        import os
+        from datetime import datetime
+
+        # Material Design Colors
+        primary_color = HexColor('#2196F3')
+        secondary_color = HexColor('#1976D2')
+        text_color = HexColor('#212121')
+
+        # Create custom styles
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(
+            name='MaterialTitle',
+            parent=styles['Title'],
+            textColor=secondary_color,
+            spaceAfter=30,
+            fontSize=24,
+            leading=30
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialHeading1',
+            parent=styles['Heading1'],
+            textColor=primary_color,
+            fontSize=18,
+            spaceAfter=16
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialHeading2',
+            parent=styles['Heading2'],
+            textColor=primary_color,
+            fontSize=16,
+            spaceAfter=12
+        ))
+        styles.add(ParagraphStyle(
+            name='MaterialNormal',
+            parent=styles['Normal'],
+            textColor=text_color,
+            fontSize=11,
+            spaceAfter=8
+        ))
+
+        # Create PDF
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pdf_path = os.path.join(percorso_output, f"analisi_multiple_{timestamp}.pdf")
+        
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=letter,
+            leftMargin=inch*0.75,
+            rightMargin=inch*0.75,
+            topMargin=inch*0.75,
+            bottomMargin=inch*0.75
+        )
+        elements = []
+
+        # Main Title
+        elements.append(Paragraph(titolo, styles['MaterialTitle']))
+        elements.append(Paragraph(f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['MaterialNormal']))
+        elements.append(Spacer(1, 20))
+        
+        # Table of Contents
+        elements.append(Paragraph("Indice delle Serie", styles['MaterialHeading1']))
+        elements.append(Spacer(1, 10))
+        
+        toc_data = [["N°", "Serie", "Nome Analisi"]]
+        for i, stats in enumerate(statistiche_multiple, 1):
+            toc_data.append([
+                str(i),
+                stats['serie_nome'],
+                stats['nome_calcolo']
+            ])
+        
+        toc_table = Table(toc_data, colWidths=[0.5*inch, 3*inch, 3.5*inch])
+        toc_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F5F5F5')]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(toc_table)
+        elements.append(PageBreak())
+
+        # Add each series analysis
+        for i, statistiche in enumerate(statistiche_multiple, 1):
+            # Series Title
+            elements.append(Paragraph(f"Serie {i}: {statistiche['nome_calcolo']}", styles['MaterialHeading1']))
+            elements.append(Paragraph(f"Nome Serie: {statistiche['serie_nome']}", styles['MaterialNormal']))
+            if statistiche.get('note'):
+                elements.append(Paragraph(f"Note: {statistiche['note']}", styles['MaterialNormal']))
+            elements.append(Spacer(1, 20))
+
+            # Statistics Table
+            elements.append(Paragraph("Statistiche", styles['MaterialHeading2']))
+            elements.append(Spacer(1, 10))
+
+            table_data = []
+            headers = [["Misura", "Valore"]]
+            stats_rows = []
+
+            for k, v in statistiche.items():
+                if k not in ['plots', 'legenda', 'nome_calcolo', 'serie_nome', 'note', 'correlazioni']:
+                    if isinstance(v, dict):
+                        for sub_k, sub_v in v.items():
+                            if isinstance(sub_v, (int, float)):
+                                measure = Paragraph(f"{k} - {sub_k}", styles['MaterialNormal'])
+                                value = Paragraph(f"{sub_v:.4f}", styles['MaterialNormal'])
+                                stats_rows.append([measure, value])
+                    elif isinstance(v, (int, float)):
+                        measure = Paragraph(k, styles['MaterialNormal'])
+                        value = Paragraph(f"{v:.4f}", styles['MaterialNormal'])
+                        stats_rows.append([measure, value])
+                    else:
+                        measure = Paragraph(k, styles['MaterialNormal'])
+                        value = Paragraph(str(v), styles['MaterialNormal'])
+                        stats_rows.append([measure, value])
+
+            table_data = headers + stats_rows
+            if table_data:
+                table = Table(table_data, colWidths=[4*inch, 3*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F5F5F5')]),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 20))
+
+            # Plots
+            if 'plots' in statistiche:
+                elements.append(Paragraph("Visualizzazioni", styles['MaterialHeading2']))
+                elements.append(Spacer(1, 10))
+
+                plot_titles = {
+                    'histogram': 'Istogramma con KDE e Distribuzione Normale',
+                    'boxplot': 'Box Plot',
+                    'qqplot': 'Q-Q Plot (Test di Normalità)'
+                }
+
+                for plot_name, plot_data in statistiche['plots'].items():
+                    if plot_name != 'correlation':
+                        elements.append(Paragraph(plot_titles.get(plot_name, plot_name.title()), 
+                                               styles['MaterialHeading2']))
+                        elements.append(Spacer(1, 8))
+                        
+                        img = StatisticheCalcolatore.base64_to_image(plot_data)
+                        if img:
+                            elements.append(img)
+                            elements.append(Spacer(1, 20))
+
+            # Add page break between series
+            if i < len(statistiche_multiple):
+                elements.append(PageBreak())
+
+        # Add correlation matrix at the end if available
+        if len(statistiche_multiple) > 1 and 'plots' in statistiche_multiple[0] and 'correlation' in statistiche_multiple[0]['plots']:
+            elements.append(PageBreak())
+            elements.append(Paragraph("Matrice di Correlazione tra Serie", styles['MaterialHeading1']))
+            elements.append(Spacer(1, 15))
+            
+            img = StatisticheCalcolatore.base64_to_image(statistiche_multiple[0]['plots']['correlation'])
+            if img:
+                elements.append(img)
+                elements.append(Spacer(1, 15))
+
+            # Add legend if available
+            if 'legenda' in statistiche_multiple[0]:
+                elements.append(Paragraph("Legenda delle Serie", styles['MaterialHeading2']))
+                elements.append(Spacer(1, 8))
+                
+                legend_data = [["Etichetta", "Nome Serie"]] + \
+                            [[k, v] for k, v in statistiche_multiple[0]['legenda'].items()]
+                
+                legend_table = Table(legend_data, colWidths=[1.5*inch, 5.5*inch])
+                legend_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F5F5F5')]),
+                ]))
+                elements.append(legend_table)
+
+        try:
+            doc.build(elements)
+            return pdf_path
+        except Exception as e:
+            print(f"Errore durante la generazione del PDF multiplo: {str(e)}")
+            raise

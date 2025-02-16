@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 import base64
+import tempfile
 from scipy import stats
 import numpy as np
-from flask import Flask, request, render_template, redirect, url_for, flash, jsonify
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
 
@@ -315,6 +316,73 @@ def esporta_pdf(id):
         print(traceback.format_exc())  # Stampa lo stack trace completo
         flash(f"Errore durante l'esportazione del PDF: {str(e)}")
         return redirect(url_for('registro'))
+
+@app.route('/esporta_pdf_multiplo', methods=['POST'])
+def esporta_pdf_multiplo():
+    try:
+        data = request.get_json()
+        if not data or 'series' not in data:
+            return jsonify({'error': 'Nessuna serie selezionata'}), 400
+        
+        series_ids = data['series']
+        if not series_ids:
+            return jsonify({'error': 'Lista serie vuota'}), 400
+        
+        # Recupera i calcoli nell'ordine specificato
+        calcoli = []
+        for id in series_ids:
+            calcolo = Calcolo.query.get(id)
+            if calcolo:
+                calcoli.append(calcolo)
+        
+        if not calcoli:
+            return jsonify({'error': 'Nessun calcolo trovato'}), 404
+        
+        # Prepara i dati per il PDF
+        series_data = {}
+        all_statistics = []
+        
+        for calcolo in calcoli:
+            statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+            serie_dati = json.loads(calcolo.valori) if calcolo.valori else []
+            
+            # Assicurati che le statistiche includano tutti i dati necessari
+            if 'plots' not in statistiche:
+                plots = generate_plots(serie_dati, calcolo.serie_nome)
+                statistiche['plots'] = plots
+            
+            series_data[calcolo.serie_nome] = serie_dati
+            statistiche['nome_calcolo'] = calcolo.nome
+            statistiche['serie_nome'] = calcolo.serie_nome
+            statistiche['note'] = calcolo.note
+            all_statistics.append(statistiche)
+        
+        # Crea una directory temporanea per il PDF
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Genera il PDF con tutte le serie nell'ordine specificato
+            pdf_path = StatisticheCalcolatore.esporta_pdf_multiplo(
+                "Analisi Multiple",
+                all_statistics,
+                series_data,
+                temp_dir
+            )
+            
+            # Leggi il PDF generato
+            with open(pdf_path, 'rb') as f:
+                pdf_data = f.read()
+            
+            return send_file(
+                io.BytesIO(pdf_data),
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name='analisi_multiple.pdf'
+            )
+            
+    except Exception as e:
+        import traceback
+        print(f"Errore durante l'esportazione multipla del PDF: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/modifica/<int:id>', methods=['GET', 'POST'])
 def modifica_calcolo(id):

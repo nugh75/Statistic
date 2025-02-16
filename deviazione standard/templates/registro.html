@@ -17,6 +17,26 @@
 
     <div class="container">
       <h1>Registro dei Calcoli Statistici</h1>
+
+      <!-- Export controls -->
+      <div class="export-controls" style="display: none;">
+        <div class="selected-series">
+          <h3>Serie Selezionate per l'Esportazione</h3>
+          <div id="selectedSeriesList" class="sortable-list">
+            <!-- Serie selezionate verranno aggiunte qui dinamicamente -->
+          </div>
+        </div>
+        <div class="export-actions">
+          <button id="exportSelected" class="btn btn-export">
+            <i class="fas fa-file-pdf"></i>
+            <span class="btn-text">Esporta PDF</span>
+          </button>
+          <button id="cancelExport" class="btn btn-secondary">
+            <i class="fas fa-times"></i>
+            <span class="btn-text">Annulla</span>
+          </button>
+        </div>
+      </div>
       
       <!-- Bulk delete controls -->
       <div class="bulk-actions">
@@ -41,11 +61,17 @@
             <!-- Move checkbox to left of title -->
             <div class="title-with-checkbox">
               <div class="selection-checkbox" style="display: none;">
-                <input type="checkbox" class="calc-select" data-id="{{ calcolo.id }}">
+                <input type="checkbox" class="calc-select" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
               </div>
               <h3>{{ calcolo.nome }}</h3>
             </div>
-            <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
+            <div class="card-actions">
+              <button class="btn btn-export select-for-export" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
+                <i class="fas fa-plus"></i>
+                <span class="btn-text">Seleziona per PDF</span>
+              </button>
+              <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
+            </div>
           </div>
           
           <div class="calcolo-content">
@@ -315,8 +341,80 @@
       input[type="checkbox"] {
         accent-color: #3498db;
       }
+
+      .export-controls {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .selected-series {
+        margin-bottom: 1.5rem;
+      }
+
+      .sortable-list {
+        min-height: 50px;
+        border: 2px dashed #e2e8f0;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-top: 1rem;
+      }
+
+      .series-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        cursor: move;
+        transition: background-color 0.2s;
+      }
+
+      .series-item:hover {
+        background: #e2e8f0;
+      }
+
+      .series-handle {
+        cursor: move;
+        color: #64748b;
+        margin-right: 1rem;
+      }
+
+      .series-remove {
+        cursor: pointer;
+        color: #ef4444;
+        background: none;
+        border: none;
+        padding: 0.25rem;
+      }
+
+      .series-remove:hover {
+        color: #dc2626;
+      }
+
+      .export-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+      }
+
+      .card-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .select-for-export {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+      }
     </style>
 
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
       // Add fullscreen functionality
       document.addEventListener('DOMContentLoaded', function() {
@@ -413,6 +511,107 @@
             alert('Errore durante l\'eliminazione dei calcoli');
           }
         });
+      });
+
+      // Add export functionality
+      document.addEventListener('DOMContentLoaded', function() {
+        const exportControls = document.querySelector('.export-controls');
+        const selectedSeriesList = document.getElementById('selectedSeriesList');
+        const exportBtn = document.getElementById('exportSelected');
+        const cancelExportBtn = document.getElementById('cancelExport');
+        const selectBtns = document.querySelectorAll('.select-for-export');
+
+        // Initialize Sortable
+        new Sortable(selectedSeriesList, {
+          animation: 150,
+          handle: '.series-handle',
+          ghostClass: 'sortable-ghost'
+        });
+
+        // Add series to selection
+        function addSeries(id, nome, serie) {
+          const existingItem = document.querySelector(`[data-series-id="${id}"]`);
+          if (existingItem) return;
+
+          const item = document.createElement('div');
+          item.className = 'series-item';
+          item.dataset.seriesId = id;
+          item.innerHTML = `
+            <div class="series-info">
+              <i class="fas fa-grip-vertical series-handle"></i>
+              <span>${nome} - ${serie}</span>
+            </div>
+            <button class="series-remove" onclick="this.closest('.series-item').remove(); checkSelectedSeries();">
+              <i class="fas fa-times"></i>
+            </button>
+          `;
+          selectedSeriesList.appendChild(item);
+          checkSelectedSeries();
+        }
+
+        // Check if there are selected series
+        function checkSelectedSeries() {
+          const hasItems = selectedSeriesList.children.length > 0;
+          exportControls.style.display = hasItems ? 'block' : 'none';
+        }
+
+        // Handle selection button clicks
+        selectBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            addSeries(
+              btn.dataset.id,
+              btn.dataset.nome,
+              btn.dataset.serie
+            );
+          });
+        });
+
+        // Handle export
+        exportBtn.addEventListener('click', async () => {
+          const selectedSeries = Array.from(selectedSeriesList.children).map(item => item.dataset.seriesId);
+          if (selectedSeries.length === 0) {
+            alert('Seleziona almeno una serie da esportare');
+            return;
+          }
+
+          try {
+            const response = await fetch('/esporta_pdf_multiplo', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                series: selectedSeries
+              })
+            });
+
+            if (response.ok) {
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'analisi_multiple.pdf';
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              a.remove();
+            } else {
+              alert('Errore durante l\'esportazione del PDF');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Errore durante l\'esportazione del PDF');
+          }
+        });
+
+        // Handle cancel
+        cancelExportBtn.addEventListener('click', () => {
+          selectedSeriesList.innerHTML = '';
+          checkSelectedSeries();
+        });
+
+        // Initial check
+        checkSelectedSeries();
       });
     </script>
   </body>

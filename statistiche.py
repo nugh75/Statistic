@@ -370,3 +370,327 @@ class StatisticheCalcolatore:
         plt.close()
         
         return legenda
+
+    @staticmethod
+    def esporta_html_multiplo(titolo: str, all_statistics: list, series_data: dict, output_dir: str) -> str:
+        """
+        Genera un report HTML per multiple serie statistiche.
+        
+        Args:
+            titolo: Titolo del report
+            all_statistics: Lista di dizionari contenenti le statistiche per ogni serie
+            series_data: Dizionario con i dati grezzi delle serie
+            output_dir: Directory dove salvare il report e le immagini
+            
+        Returns:
+            str: Percorso del file HTML generato
+        """
+        import os
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+        from datetime import datetime
+        
+        # Crea la directory per le immagini se non esiste
+        img_dir = os.path.join(output_dir, 'images')
+        os.makedirs(img_dir, exist_ok=True)
+        
+        # Salva le immagini dei plot come file PNG
+        for i, stats in enumerate(all_statistics):
+            if 'plots' in stats:
+                plots_dir = {}
+                for plot_type, plot_data in stats['plots'].items():
+                    try:
+                        # Verifica se il dato è una stringa base64
+                        if isinstance(plot_data, str):
+                            # Se inizia con data:image/png;base64,
+                            if plot_data.startswith('data:image/png;base64,'):
+                                img_data = base64.b64decode(plot_data.split(',')[1])
+                            # Se è già una stringa base64 senza il prefisso
+                            else:
+                                img_data = base64.b64decode(plot_data)
+                            
+                            # Crea un nome file univoco per l'immagine
+                            img_filename = f'serie_{i+1}_{plot_type}.png'
+                            img_path = os.path.join(img_dir, img_filename)
+                            
+                            # Salva l'immagine
+                            with open(img_path, 'wb') as f:
+                                f.write(img_data)
+                            
+                            # Aggiorna il riferimento nel dizionario delle statistiche
+                            plots_dir[plot_type] = f'images/{img_filename}'
+                        else:
+                            # Se il plot_data non è una stringa, lo ignoriamo
+                            print(f"Warning: plot data for {plot_type} is not a string")
+                            continue
+                            
+                    except Exception as e:
+                        print(f"Error processing image {plot_type} for series {i+1}: {str(e)}")
+                        continue
+                
+                stats['plots'] = plots_dir
+        
+        # Crea il template HTML
+        html_template = '''
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{{ titolo }}</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #f5f7fa;
+                }
+                .container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                h1, h2, h3 {
+                    color: #2c3e50;
+                }
+                .serie-container {
+                    margin-bottom: 40px;
+                    padding: 20px;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+                .stats-section {
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 6px;
+                }
+                .stats-section h4 {
+                    color: #3498db;
+                    margin-top: 0;
+                    margin-bottom: 10px;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 5px;
+                }
+                .stats-section ul {
+                    list-style-type: none;
+                    padding: 0;
+                    margin: 0;
+                }
+                .stats-section li {
+                    margin-bottom: 8px;
+                    padding: 8px;
+                    background-color: white;
+                    border-radius: 4px;
+                }
+                .plots-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                    gap: 20px;
+                    margin-top: 20px;
+                }
+                .plot-card {
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                    text-align: center;
+                }
+                .plot-card img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 4px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .note-box {
+                    background-color: #fff3cd;
+                    color: #856404;
+                    padding: 15px;
+                    margin-top: 15px;
+                    border-radius: 4px;
+                    border-left: 4px solid #ffeeba;
+                }
+                .correlations-section {
+                    margin-top: 20px;
+                }
+                .correlations-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 10px;
+                }
+                .correlation-item {
+                    background-color: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 4px;
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .footer {
+                    margin-top: 40px;
+                    text-align: center;
+                    color: #666;
+                    font-size: 0.9em;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>{{ titolo }}</h1>
+                <p>Report generato il {{ data_generazione }}</p>
+                
+                {% for stats in all_statistics %}
+                <div class="serie-container">
+                    <h2>{{ stats.nome_calcolo }}</h2>
+                    <h3>Serie: {{ stats.serie_nome }}</h3>
+                    
+                    {% if stats.note %}
+                    <div class="note-box">
+                        <strong>Note:</strong> {{ stats.note }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="stats-grid">
+                        <div class="stats-section">
+                            <h4>Informazioni Dataset</h4>
+                            <ul>
+                                <li>Numero di valori: <strong>{{ stats.count }}</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="stats-section">
+                            <h4>Valori Principali</h4>
+                            <ul>
+                                <li>Minimo: <strong>{{ "%.4f"|format(stats.min_max.min) }}</strong></li>
+                                <li>Q1 (25° percentile): <strong>{{ "%.4f"|format(stats.quartili.Q1) }}</strong></li>
+                                <li>Mediana (Q2): <strong>{{ "%.4f"|format(stats.mediana) }}</strong></li>
+                                <li>Media: <strong>{{ "%.4f"|format(stats.media) }}</strong></li>
+                                <li>Q3 (75° percentile): <strong>{{ "%.4f"|format(stats.quartili.Q3) }}</strong></li>
+                                <li>Massimo: <strong>{{ "%.4f"|format(stats.min_max.max) }}</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="stats-section">
+                            <h4>Misure di Dispersione</h4>
+                            <ul>
+                                <li>Dev. Std. (pop.): <strong>{{ "%.6f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
+                                <li>Dev. Std. (camp.): <strong>{{ "%.6f"|format(stats.deviazione_standard_campione) }}</strong></li>
+                                <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="stats-section">
+                            <h4>Altri Indicatori</h4>
+                            <ul>
+                                <li>Moda: 
+                                    <strong>
+                                    {% if stats.moda is string or stats.moda is number %}
+                                        {{ "%.4f"|format(stats.moda) }}
+                                    {% else %}
+                                        {{ stats.moda|map('format_float')|join(", ") }}
+                                    {% endif %}
+                                    </strong>
+                                </li>
+                                <li>Varianza (pop.): <strong>{{ "%.6f"|format(stats.varianza_popolazione) }}</strong></li>
+                                <li>Varianza (camp.): <strong>{{ "%.6f"|format(stats.varianza_campione) }}</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    {% if stats.plots %}
+                    <div class="visualizations-section">
+                        <h3>Visualizzazioni Statistiche</h3>
+                        <div class="plots-grid">
+                            {% if stats.plots.histogram %}
+                            <div class="plot-card">
+                                <h4>Istogramma con KDE e Distribuzione Normale</h4>
+                                <img src="{{ stats.plots.histogram }}" alt="Histogram">
+                            </div>
+                            {% endif %}
+                            
+                            {% if stats.plots.boxplot %}
+                            <div class="plot-card">
+                                <h4>Box Plot</h4>
+                                <img src="{{ stats.plots.boxplot }}" alt="Box Plot">
+                            </div>
+                            {% endif %}
+                            
+                            {% if stats.plots.qqplot %}
+                            <div class="plot-card">
+                                <h4>Q-Q Plot (Test di Normalità)</h4>
+                                <img src="{{ stats.plots.qqplot }}" alt="Q-Q Plot">
+                            </div>
+                            {% endif %}
+                            
+                            {% if stats.plots.correlation %}
+                            <div class="plot-card">
+                                <h4>Matrice di Correlazione</h4>
+                                <img src="{{ stats.plots.correlation }}" alt="Correlation Matrix">
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.correlazioni %}
+                    <div class="correlations-section">
+                        <h3>Correlazioni con altre serie</h3>
+                        <div class="correlations-grid">
+                            {% for altra_serie, correlazione in stats.correlazioni.items() %}
+                                {% if altra_serie != stats.serie_nome %}
+                                <div class="correlation-item">
+                                    <span>{{ altra_serie }}:</span>
+                                    <strong>{{ "%.4f"|format(correlazione) }}</strong>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                <div class="footer">
+                    <p>Report generato automaticamente da StatisticheCalcolatore</p>
+                </div>
+            </div>
+            
+            <script>
+                // Aggiungi funzione per formattare i numeri float
+                function formatFloat(value) {
+                    return value.toFixed(4);
+                }
+            </script>
+        </body>
+        </html>
+        '''
+        
+        # Crea l'ambiente Jinja2
+        env = Environment(autoescape=select_autoescape(['html', 'xml']))
+        
+        # Aggiungi il filtro format_float
+        env.filters['format_float'] = lambda x: f"{float(x):.4f}"
+        
+        # Compila il template
+        template = env.from_string(html_template)
+        
+        # Genera l'HTML
+        html_content = template.render(
+            titolo=titolo,
+            all_statistics=all_statistics,
+            data_generazione=datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        )
+        
+        # Salva il file HTML
+        html_path = os.path.join(output_dir, 'report.html')
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        return html_path

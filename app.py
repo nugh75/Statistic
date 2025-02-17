@@ -521,4 +521,4 @@ def elimina_multipli():
 if __name__ == '__main__':
     app.config['DEBUG'] = True  # Enable debug mode
     app.config['TEMPLATES_AUTO_RELOAD'] = True  # Enable template auto-reload
-    app.run(debug=True, port=5002, threaded=True, host='0.0.0.0')
+    app.run(debug=True, port=5003, threaded=True, host='0.0.0.0')

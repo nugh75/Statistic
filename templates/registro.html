@@ -176,66 +176,7 @@
                       <img src="data:image/png;base64,{{ calcolo.statistiche.plots.correlation }}" alt="Correlation Matrix">
                     </div>
 
-                    <!-- Significant Correlations Section -->
-                    <div class="significant-correlations">
-                      <h4>Correlazioni Statisticamente Significative (p < 0.05)</h4>
-                      <div class="correlation-strength-guide">
-                        <p>Interpretazione della forza delle correlazioni:</p>
-                        <ul>
-                          <li><span class="very-strong-positive">Molto forte positiva (≥ 0.9)</span></li>
-                          <li><span class="strong-positive">Forte positiva (0.7 - 0.9)</span></li>
-                          <li><span class="moderate-positive">Moderata positiva (0.5 - 0.7)</span></li>
-                          <li><span class="moderate-negative">Moderata negativa (-0.7 - -0.5)</span></li>
-                          <li><span class="strong-negative">Forte negativa (-0.9 - -0.7)</span></li>
-                          <li><span class="very-strong-negative">Molto forte negativa (≤ -0.9)</span></li>
-                        </ul>
-                      </div>
-                      <div class="correlations-grid">
-                        {% if calcolo.statistiche.correlazioni is mapping %}
-                          {% for serie1, correlazioni in calcolo.statistiche.correlazioni.items() %}
-                            {% if correlazioni is mapping %}
-                              {% for serie2, values in correlazioni.items() %}
-                                {% if serie1 != serie2 and values is mapping and values.p_value < 0.05 %}
-                                  {% set coef = values.coefficiente %}
-                                  {% set strength_class = "moderate" %}
-                                  {% if coef >= 0.9 %}
-                                    {% set strength_class = "very-strong-positive" %}
-                                    {% set strength_text = "Molto forte positiva" %}
-                                  {% elif coef >= 0.7 %}
-                                    {% set strength_class = "strong-positive" %}
-                                    {% set strength_text = "Forte positiva" %}
-                                  {% elif coef >= 0.5 %}
-                                    {% set strength_class = "moderate-positive" %}
-                                    {% set strength_text = "Moderata positiva" %}
-                                  {% elif coef <= -0.9 %}
-                                    {% set strength_class = "very-strong-negative" %}
-                                    {% set strength_text = "Molto forte negativa" %}
-                                  {% elif coef <= -0.7 %}
-                                    {% set strength_class = "strong-negative" %}
-                                    {% set strength_text = "Forte negativa" %}
-                                  {% elif coef <= -0.5 %}
-                                    {% set strength_class = "moderate-negative" %}
-                                    {% set strength_text = "Moderata negativa" %}
-                                  {% endif %}
-                                  <div class="correlation-item {{ strength_class }}">
-                                    <div class="correlation-info">
-                                      <span class="correlation-pair">{{ serie1 }} ↔ {{ serie2 }}</span>
-                                      <span class="correlation-value">
-                                        {{ "%.3f"|format(values.coefficiente) }}
-                                      </span>
-                                    </div>
-                                    <div class="correlation-details">
-                                      <span class="strength-text">{{ strength_text }}</span>
-                                      <span class="significance-text">p = {{ "%.4f"|format(values.p_value) }}</span>
-                                    </div>
-                                  </div>
-                                {% endif %}
-                              {% endfor %}
-                            {% endif %}
-                          {% endfor %}
-                        {% endif %}
-                      </div>
-                    </div>
+                
 
                     {% if calcolo.statistiche.legenda %}
                     <div class="correlation-legend">

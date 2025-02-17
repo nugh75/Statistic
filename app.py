@@ -237,12 +237,18 @@ def index():
                         stats_dict['legenda'] = legenda
                     
                     # Aggiungi le correlazioni se disponibili
-                    if correlazioni:
+                    # Aggiungi le correlazioni se disponibili
+                    if correlazioni and colonna in correlazioni:
                         stats_dict['correlazioni'] = correlazioni[colonna]
                     
                     # Aggiungi i t-test se disponibili
                     if t_tests and colonna in t_tests:
                         stats_dict['t_tests'] = t_tests[colonna]
+                        # Aggiungi l'interpretazione dell'effect size per ogni t-test
+                        if isinstance(t_tests[colonna], dict):
+                            for serie, test_result in t_tests[colonna].items():
+                                if 'cohens_d' in test_result:
+                                    test_result['effect_size'] = StatisticheCalcolatore.interpreta_cohens_d(test_result['cohens_d'])
                     
                     # Serializza i dati
                     stats_json = json.dumps(stats_dict)

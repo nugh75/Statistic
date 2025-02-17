@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Registro Calcoli Statistici</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
@@ -140,8 +142,141 @@
                       </div>
                     </div>
                   </details>
+                  <details>
+                    <summary>Statistiche di Base</summary>
+                    <div class="stats-grid-compact">
+                      <div class="stat-metric">
+                        <div class="metric-group">
+                          <h5>Misure Centrali</h5>
+                          <ul>
+                            <li>Media: <strong>{{ "%.4f"|format(stats.media) }}</strong></li>
+                            <li>Mediana: <strong>{{ "%.4f"|format(stats.mediana) }}</strong></li>
+                            <li>Moda: 
+                              <strong>
+                                {% if stats.moda is string or stats.moda is number %}
+                                  {{ "%.4f"|format(stats.moda) }}
+                                {% else %}
+                                  {% for val in stats.moda %}
+                                    {{ "%.4f"|format(val) }}{% if not loop.last %}, {% endif %}
+                                  {% endfor %}
+                                {% endif %}
+                              </strong>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Misure di Dispersione</h5>
+                          <ul>
+                            <li>Dev. Std. (pop.): <strong>{{ "%.4f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
+                            <li>Dev. Std. (camp.): <strong>{{ "%.4f"|format(stats.deviazione_standard_campione) }}</strong></li>
+                            <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Quartili</h5>
+                          <ul>
+                            <li>Q1: <strong>{{ "%.4f"|format(stats.quartili.Q1) }}</strong></li>
+                            <li>Q2 (Mediana): <strong>{{ "%.4f"|format(stats.quartili.Q2) }}</strong></li>
+                            <li>Q3: <strong>{{ "%.4f"|format(stats.quartili.Q3) }}</strong></li>
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Altre Statistiche</h5>
+                          <ul>
+                            <li>N. Osservazioni: <strong>{{ stats.count }}</strong></li>
+                            <li>Minimo: <strong>{{ "%.4f"|format(stats.min_max.min) }}</strong></li>
+                            <li>Massimo: <strong>{{ "%.4f"|format(stats.min_max.max) }}</strong></li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               </div>
+
+              <!-- Correlazioni e Test Statistici -->
+              {% if stats.correlazioni %}
+              <div class="correlations-section">
+                <div class="section-header">
+                  <h4>Correlazioni e Test Statistici</h4>
+                  <div class="info-tooltip" data-tooltip="Correlazione: Forza della relazione tra le serie&#10;p-value < 0.05: Differenza statisticamente significativa&#10;Effect Size: Grandezza dell'effetto (piccolo: 0.2-0.5, medio: 0.5-0.8, grande: >0.8)">
+                    <i class="fas fa-info-circle"></i>
+                  </div>
+                </div>
+                <!-- Debug Info -->
+                {% if stats.correlazioni %}
+                <div class="debug-info" style="display: none;">
+                  <pre>{{ stats.correlazioni|tojson }}</pre>
+                </div>
+                {% endif %}
+                
+                <div class="correlations-grid">
+                  {% for altra_serie, correlazione in stats.correlazioni.items() if altra_serie != calcolo.serie_nome %}
+                    {% if correlazione is mapping %}
+                      {% for sub_serie, sub_corr in correlazione.items() %}
+                        {% if sub_serie != calcolo.serie_nome and sub_corr is number %}
+                          <div class="stat-comparison-card">
+                            <div class="comparison-header">
+                              <div class="header-main">
+                                <h5>{{ sub_serie }}</h5>
+                                {% if stats.t_tests and sub_serie in stats.t_tests %}
+                                  {% set t_test = stats.t_tests[sub_serie] %}
+                                  {% if t_test.p_value is defined and t_test.p_value is number %}
+                                    <div class="significance-badge {% if t_test.p_value < 0.05 %}significant{% endif %}">
+                                      {% if t_test.p_value < 0.05 %}
+                                        <i class="fas fa-star"></i> Significativo
+                                      {% else %}
+                                        <i class="fas fa-times"></i> Non significativo
+                                      {% endif %}
+                                    </div>
+                                  {% endif %}
+                                {% endif %}
+                              </div>
+                            </div>
+
+                            <div class="base-metrics">
+                              <div class="metric-pill correlation {% if sub_corr > 0.7 %}high-positive{% elif sub_corr < -0.7 %}high-negative{% endif %}">
+                                <i class="fas fa-link"></i>
+                                <span>r = {{ "%.4f"|format(sub_corr) }}</span>
+                              </div>
+
+                              {% if stats.t_tests and sub_serie in stats.t_tests %}
+                                {% set t_test = stats.t_tests[sub_serie] %}
+                                {% if t_test.p_value is defined and t_test.p_value is number %}
+                                  <div class="metric-pill">
+                                    <i class="fas fa-calculator"></i>
+                                    <span>p = {{ "%.4f"|format(t_test.p_value) }}</span>
+                                  </div>
+                                {% endif %}
+                                
+                                {% if t_test.cohens_d is defined and t_test.cohens_d is number %}
+                                  {% set d = t_test.cohens_d %}
+                                  <div class="metric-pill effect-size {% if d|abs > 0.8 %}large{% elif d|abs > 0.5 %}medium{% elif d|abs > 0.2 %}small{% endif %}">
+                                    <i class="fas fa-ruler-horizontal"></i>
+                                    <span>d = {{ "%.3f"|format(d) }}</span>
+                                    {% if t_test.effect_size is defined %}
+                                      <small>({{ t_test.effect_size }})</small>
+                                    {% endif %}
+                                  </div>
+                                {% endif %}
+                              {% endif %}
+                            </div>
+                          </div>
+                        {% endif %}
+                      {% endfor %}
+                    {% elif correlazione is number %}
+                      <!-- Existing direct correlation display code -->
+                      <div class="stat-comparison-card">
+                        // ...existing code for direct correlations...
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
 
               <!-- Add Visualizations Section -->
               {% if stats.plots %}
@@ -373,6 +508,8 @@
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
     <script>
       // Add fullscreen functionality
       document.addEventListener('DOMContentLoaded', function() {
@@ -676,6 +813,34 @@
           alert('Errore durante l\'esportazione');
         }
       }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // Inizializza i tooltip
+        tippy('.info-tooltip', {
+          theme: 'stat-info',
+          placement: 'top',
+          arrow: true,
+          allowHTML: true,
+          maxWidth: 300
+        });
+
+        // Rendi le cards delle statistiche espandibili
+        document.querySelectorAll('.stat-comparison-card').forEach(card => {
+          card.addEventListener('click', function() {
+            this.classList.toggle('expanded');
+          });
+        });
+
+        // Hover effect per i metric pills
+        document.querySelectorAll('.metric-pill').forEach(pill => {
+          pill.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+          });
+          pill.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+          });
+        });
+      });
     </script>
   </body>
 </html>

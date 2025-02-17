@@ -38,6 +38,15 @@ def add_header(response):
 def from_json(value):
     return json.loads(value) if value else None
 
+# Add template filters
+@app.template_filter('format_float')
+def format_float(value):
+    """Template filter per formattare numeri float."""
+    try:
+        return "{:.4f}".format(float(value))
+    except (ValueError, TypeError):
+        return str(value)
+
 # Initialize database
 db.init_app(app)
 with app.app_context():
@@ -286,9 +295,43 @@ def registro():
     for calcolo in calcoli:
         if calcolo.statistiche:
             try:
-                calcolo.statistiche = json.loads(calcolo.statistiche)
-            except json.JSONDecodeError:
+                # Parse JSON statistiche
+                stats = json.loads(calcolo.statistiche)
+                
+                # Normalizza le correlazioni
+                if 'correlazioni' in stats:
+                    correlazioni = stats['correlazioni']
+                    if isinstance(correlazioni, dict):
+                        # Se è un dizionario di dizionari, appiattisci
+                        if any(isinstance(v, dict) for v in correlazioni.values()):
+                            correlazioni_piatte = {}
+                            for serie1, values in correlazioni.items():
+                                if isinstance(values, dict):
+                                    for serie2, corr in values.items():
+                                        if isinstance(corr, (int, float)):
+                                            correlazioni_piatte[serie2] = float(corr)
+                                elif isinstance(values, (int, float)):
+                                    correlazioni_piatte[serie1] = float(values)
+                            stats['correlazioni'] = correlazioni_piatte
+                
+                # Normalizza i t-test
+                if 't_tests' in stats:
+                    t_tests = stats['t_tests']
+                    if isinstance(t_tests, dict):
+                        for serie, test_results in t_tests.items():
+                            if isinstance(test_results, dict):
+                                # Assicurati che p_value e cohens_d siano float
+                                if 'p_value' in test_results:
+                                    test_results['p_value'] = float(test_results['p_value'])
+                                if 'cohens_d' in test_results:
+                                    test_results['cohens_d'] = float(test_results['cohens_d'])
+                
+                calcolo.statistiche = stats
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Errore nella normalizzazione dei dati per il calcolo {calcolo.id}: {str(e)}")
                 calcolo.statistiche = None
+    
     return render_template('registro.html', calcoli=calcoli)
 
 @app.route('/esporta_pdf/<int:id>')

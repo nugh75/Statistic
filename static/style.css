@@ -1121,3 +1121,558 @@ tr:hover {
     color: #276749;
     border-left: 3px solid #38a169;
 }
+
+/* Correlation and Statistical Tests Cards */
+.stat-comparison-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-comparison-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.comparison-header h5 {
+    font-size: 1.1rem;
+    color: #2d3748;
+    margin: 0;
+    font-weight: 600;
+}
+
+.significance-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background-color: #edf2f7;
+    color: #718096;
+}
+
+.significance-badge.significant {
+    background-color: #c6f6d5;
+    color: #276749;
+}
+
+.significance-badge i {
+    margin-right: 0.4rem;
+}
+
+.stat-metrics {
+    display: grid;
+    gap: 1rem;
+}
+
+.metric-group {
+    padding: 0.8rem;
+    background: #f7fafc;
+    border-radius: 8px;
+    border-left: 3px solid #e2e8f0;
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: #718096;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+}
+
+.metric-value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.metric-value.high-positive {
+    color: #276749;
+}
+
+.metric-value.high-negative {
+    color: #9b2c2c;
+}
+
+.metric-values {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.sub-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.sub-metric small {
+    color: #718096;
+    font-size: 0.8rem;
+}
+
+.sub-metric strong {
+    font-family: 'Roboto Mono', monospace;
+    color: #2d3748;
+}
+
+.sub-metric strong.significant {
+    color: #276749;
+    font-weight: 700;
+}
+
+.effect-size-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.effect-size-value {
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 1.1rem;
+}
+
+.effect-size-value.large {
+    background-color: #fed7d7;
+    color: #9b2c2c;
+}
+
+.effect-size-value.medium {
+    background-color: #feebc8;
+    color: #975a16;
+}
+
+.effect-size-value.small {
+    background-color: #e6ffed;
+    color: #276749;
+}
+
+.effect-size-interpretation {
+    font-size: 0.9rem;
+    color: #718096;
+    font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-comparison-card {
+        padding: 1rem;
+    }
+
+    .metric-values {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .effect-size-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
+/* Section Header with Toggle Button */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.toggle-details-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #4a5568;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-details-btn:hover {
+    background: #edf2f7;
+    color: #2d3748;
+}
+
+.toggle-details-btn i {
+    transition: transform 0.2s ease;
+}
+
+.toggle-details-btn i.fa-chevron-up {
+    transform: rotate(180deg);
+}
+
+/* Correlation Guide */
+.correlation-guide {
+    background: #f8fafc;
+    border-left: 4px solid #3498db;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 6px;
+}
+
+.guide-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.guide-item:last-child {
+    margin-bottom: 0;
+}
+
+.guide-item i {
+    color: #3498db;
+    font-size: 1.1rem;
+}
+
+.guide-item span {
+    font-size: 0.9rem;
+    color: #4a5568;
+    line-height: 1.4;
+}
+
+/* Advanced Details Toggle */
+.advanced-details {
+    opacity: 1;
+    max-height: 1000px;
+    transition: all 0.3s ease-in-out;
+}
+
+.advanced-details.hidden {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+}
+
+/* Tooltip Theme */
+.tippy-box[data-theme~='stat-info'] {
+    background-color: #2d3748;
+    color: white;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.tippy-box[data-theme~='stat-info'][data-placement^='top'] > .tippy-arrow::before {
+    border-top-color: #2d3748;
+}
+
+/* Help Icons */
+.help-icon {
+    color: #90cdf4;
+    font-size: 0.9rem;
+    margin-left: 0.3rem;
+    cursor: help;
+}
+
+/* Metric Pills per la vista registro */
+.base-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.metric-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 20px;
+    background: #f7fafc;
+    font-size: 0.9rem;
+    transition: transform 0.2s ease;
+}
+
+.metric-pill:hover {
+    transform: translateY(-1px);
+}
+
+.metric-pill i {
+    color: #4a5568;
+}
+
+.metric-pill.correlation {
+    border-left: 3px solid #3498db;
+}
+
+.metric-pill.correlation.high-positive {
+    background: #e6ffed;
+    border-left-color: #276749;
+}
+
+.metric-pill.correlation.high-negative {
+    background: #fff5f5;
+    border-left-color: #9b2c2c;
+}
+
+.metric-pill.effect-size {
+    border-left: 3px solid #6b46c1;
+}
+
+.metric-pill.effect-size.large {
+    background: #fad7dd;
+    border-left-color: #c53030;
+}
+
+.metric-pill.effect-size.medium {
+    background: #feebc8;
+    border-left-color: #c05621;
+}
+
+.metric-pill.effect-size.small {
+    background: #e6ffed;
+    border-left-color: #38a169;
+}
+
+.metric-pill small {
+    color: #718096;
+    margin-left: 0.3rem;
+    font-style: italic;
+}
+
+/* Responsive adjustments for registro view */
+@media (max-width: 768px) {
+    .base-metrics {
+        flex-direction: column;
+    }
+    
+    .metric-pill {
+        width: 100%;
+    }
+}
+
+/* Registro Correlation Section Improvements */
+.correlations-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.correlations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.stat-comparison-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-comparison-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.header-main h5 {
+    margin: 0;
+    color: #2d3748;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Add smooth transition for metric pills */
+.metric-pill {
+    transition: all 0.2s ease;
+}
+
+.metric-pill:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Info Tooltip Styles */
+.info-tooltip {
+    cursor: help;
+    color: #718096;
+    margin-left: 0.5rem;
+    transition: color 0.2s ease;
+}
+
+.info-tooltip:hover {
+    color: #3498db;
+}
+
+.info-tooltip i {
+    font-size: 1.1rem;
+}
+
+/* Tippy.js theme customization */
+.tippy-box[data-theme~='stat-info'] {
+    background-color: #2d3748;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    white-space: pre-line;
+}
+
+.tippy-box[data-theme~='stat-info'] .tippy-arrow {
+    color: #2d3748;
+}
+
+/* Section header with info */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Expanded card state */
+.stat-comparison-card {
+    cursor: pointer;
+}
+
+.stat-comparison-card.expanded {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-comparison-card.expanded .base-metrics {
+    margin-top: 1.5rem;
+}
+
+/* Improve metric pills readability */
+.metric-pill {
+    font-family: 'Roboto Mono', monospace;
+    letter-spacing: -0.5px;
+}
+
+.metric-pill i {
+    width: 16px;
+    text-align: center;
+}
+
+/* Improved Stat Metric Styles */
+.stat-metric {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    background: #fff;
+    border-radius: 8px;
+}
+
+.metric-group {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.metric-group h5 {
+    color: #3498db;
+    font-size: 1rem;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.metric-group ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.metric-group li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.metric-group li:last-child {
+    border-bottom: none;
+}
+
+.metric-group strong {
+    font-family: 'Roboto Mono', monospace;
+    color: #2d3748;
+    font-weight: 500;
+}
+
+/* Stats Summary Improvements */
+.stats-summary details {
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.stats-summary summary {
+    padding: 1rem;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stats-summary summary::-webkit-details-marker {
+    display: none;
+}
+
+.stats-summary summary::before {
+    content: '\f0fe';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: #3498db;
+    transition: transform 0.2s ease;
+}
+
+.stats-summary details[open] summary::before {
+    content: '\f146';
+}
+
+.stats-grid-compact {
+    padding: 0 1rem 1rem 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-metric {
+        grid-template-columns: 1fr;
+    }
+    
+    .metric-group {
+        margin-bottom: 1rem;
+    }
+}

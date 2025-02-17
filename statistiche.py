@@ -392,7 +392,7 @@ class StatisticheCalcolatore:
             
         Returns:
             Dict: Dizionario strutturato come:
-                 {serie1: {serie2: {"t_statistic": float, "p_value": float}}}
+                 {serie1: {serie2: {"t_statistic": float, "p_value": float, "cohens_d": float, "effect_size": str}}}
         """
         result = {}
         
@@ -411,16 +411,15 @@ class StatisticheCalcolatore:
             for serie2 in adjusted_data:
                 if serie1 != serie2:
                     try:
-                        result[serie1][serie2] = StatisticheCalcolatore.calcola_ttest(
+                        # Calcola t-test con effect size
+                        test_results = StatisticheCalcolatore.calcola_ttest(
                             adjusted_data[serie1],
                             adjusted_data[serie2]
                         )
+                        result[serie1][serie2] = test_results
                     except Exception as e:
                         print(f"Error calculating t-test between {serie1} and {serie2}: {str(e)}")
-                        result[serie1][serie2] = {
-                            "t_statistic": 0.0,
-                            "p_value": 1.0
-                        }
+                        continue
         
         return result
 

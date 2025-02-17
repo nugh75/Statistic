@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Risultati Statistici</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/@popperjs/core@2" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
@@ -152,30 +154,80 @@
               </div>
               {% endif %}
 
-              <!-- Correlazioni -->
+              <!-- Correlazioni e Test Statistici -->
               {% if risultato.statistiche.correlazioni %}
               <div class="correlations-section">
-                <h4>Correlazioni e Test Statistici</h4>
-                <div class="correlations-grid">
+                <div class="section-header">
+                  <h4>Correlazioni e Test Statistici</h4>
+                  <button class="toggle-details-btn" title="Mostra/Nascondi dettagli avanzati">
+                    <i class="fas fa-chevron-down"></i>
+                    <span>Dettagli avanzati</span>
+                  </button>
+                </div>
+
+                <div class="correlation-guide">
+                  <div class="guide-item">
+                    <i class="fas fa-info-circle"></i>
+                    <span>P-value < 0.05 indica una differenza statisticamente significativa</span>
+                  </div>
+                  <div class="guide-item">
+                    <i class="fas fa-ruler-horizontal"></i>
+                    <span>Effect size (d): <0.2 trascurabile, 0.2-0.5 piccolo, 0.5-0.8 medio, >0.8 grande</span>
+                  </div>
+                </div>
+
+                <div class="stats-grid">
                   {% for altra_serie, correlazione in risultato.statistiche.correlazioni.items() %}
                     {% if altra_serie != risultato.serie %}
-                    <div class="correlation-item">
-                      <div class="correlation-header">
-                        <span class="correlation-label">{{ altra_serie }}</span>
+                    <div class="stat-comparison-card">
+                      <div class="comparison-header">
+                        <h5>{{ altra_serie }}</h5>
+                        <div class="significance-badge {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
+                          {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}
+                            <i class="fas fa-star"></i> Significativo
+                          {% else %}
+                            <i class="fas fa-times"></i> Non significativo
+                          {% endif %}
+                        </div>
                       </div>
-                      <div class="correlation-details">
-                        <span class="correlation-value {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
-                          Correlazione: {{ "%.4f"|format(correlazione) }}
-                        </span>
+
+                      <div class="stat-metrics">
+                        <!-- Correlazione -->
+                        <div class="metric-group">
+                          <div class="metric-label">Correlazione</div>
+                          <div class="metric-value {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
+                            {{ "%.4f"|format(correlazione) }}
+                          </div>
+                        </div>
+
+                        <!-- T-test -->
                         {% if risultato.statistiche.t_tests and altra_serie in risultato.statistiche.t_tests %}
-                        <div class="ttest-results">
-                          <span class="ttest-stat">t-stat: {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].t_statistic) }}</span>
-                          <span class="ttest-pvalue {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
-                            p-value: {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].p_value) }}
-                          </span>
-                          <div class="effect-size {% if risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.8 %}large{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.5 %}medium{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.2 %}small{% endif %}">
-                            Effect size: {{ "%.3f"|format(risultato.statistiche.t_tests[altra_serie].cohens_d) }}
-                            ({{ risultato.statistiche.t_tests[altra_serie].effect_size }})
+                        <div class="metric-group">
+                          <div class="metric-label">T-test</div>
+                          <div class="metric-values">
+                            <span class="sub-metric">
+                              <small>t-stat:</small>
+                              <strong>{{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].t_statistic) }}</strong>
+                            </span>
+                            <span class="sub-metric">
+                              <small>p-value:</small>
+                              <strong class="{% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
+                                {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].p_value) }}
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- Effect Size -->
+                        <div class="metric-group">
+                          <div class="metric-label">Effect Size (Cohen's d)</div>
+                          <div class="effect-size-container">
+                            <div class="effect-size-value {% if risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.8 %}large{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.5 %}medium{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.2 %}small{% endif %}">
+                              {{ "%.3f"|format(risultato.statistiche.t_tests[altra_serie].cohens_d) }}
+                            </div>
+                            <div class="effect-size-interpretation">
+                              {{ risultato.statistiche.t_tests[altra_serie].effect_size }}
+                            </div>
                           </div>
                         </div>
                         {% endif %}
@@ -186,6 +238,177 @@
                 </div>
               </div>
               {% endif %}
+              
+              <!-- Layout a Cards con Design Gerarchico -->
+              <div class="stats-cards-container">
+                {% if risultato.statistiche.correlazioni %}
+                <div class="correlations-section">
+                  <div class="section-header">
+                    <h4>
+                      Correlazioni e Test Statistici
+                      <span class="help-icon" data-tooltip="Analisi delle relazioni tra le serie di dati">
+                        <i class="fas fa-info-circle"></i>
+                      </span>
+                    </h4>
+                    <button class="toggle-details-btn" title="Mostra/Nascondi dettagli avanzati">
+                      <i class="fas fa-chevron-down"></i>
+                      <span>Dettagli avanzati</span>
+                    </button>
+                  </div>
+
+                  <!-- Guide Box -->
+                  <div class="stats-guide">
+                    <div class="guide-header">
+                      <i class="fas fa-lightbulb"></i>
+                      <span>Guida all'Interpretazione</span>
+                    </div>
+                    <div class="guide-content">
+                      <div class="guide-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Correlazione: indica la forza e la direzione della relazione tra due serie</span>
+                      </div>
+                      <div class="guide-item">
+                        <i class="fas fa-calculator"></i>
+                        <span>T-test: verifica se le differenze tra le medie sono statisticamente significative</span>
+                      </div>
+                      <div class="guide-item">
+                        <i class="fas fa-ruler"></i>
+                        <span>Effect Size: misura la grandezza dell'effetto osservato</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Cards Grid -->
+                  <div class="stats-grid expandable-grid">
+                    {% for altra_serie, correlazione in risultato.statistiche.correlazioni.items() %}
+                      {% if altra_serie != risultato.serie %}
+                      <div class="stat-comparison-card">
+                        <!-- Card Header -->
+                        <div class="comparison-header">
+                          <div class="header-main">
+                            <h5>{{ altra_serie }}</h5>
+                            <div class="significance-badge {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
+                              {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}
+                                <i class="fas fa-star"></i> Significativo
+                              {% else %}
+                                <i class="fas fa-times"></i> Non significativo
+                              {% endif %}
+                            </div>
+                          </div>
+                          <button class="expand-details" title="Espandi dettagli">
+                            <i class="fas fa-chevron-down"></i>
+                          </button>
+                        </div>
+
+                        <!-- Metriche Base -->
+                        <div class="base-metrics">
+                          <div class="metric-pill correlation {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
+                            <i class="fas fa-link"></i>
+                            <span>Correlazione: {{ "%.4f"|format(correlazione) }}</span>
+                          </div>
+                          {% if risultato.statistiche.t_tests and altra_serie in risultato.statistiche.t_tests %}
+                          <div class="metric-pill effect-size {% if risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.8 %}large{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.5 %}medium{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.2 %}small{% endif %}">
+                            <i class="fas fa-ruler-horizontal"></i>
+                            <span>Effect Size: {{ "%.3f"|format(risultato.statistiche.t_tests[altra_serie].cohens_d) }}</span>
+                          </div>
+                          {% endif %}
+                        </div>
+
+                        <!-- Dettagli Espandibili -->
+                        <div class="advanced-details hidden">
+                          {% if risultato.statistiche.t_tests and altra_serie in risultato.statistiche.t_tests %}
+                          <div class="detailed-metrics">
+                            <div class="metric-group">
+                              <div class="metric-header">
+                                <i class="fas fa-calculator"></i>
+                                <span>T-test</span>
+                              </div>
+                              <div class="metric-content">
+                                <div class="metric-row">
+                                  <span>t-statistic:</span>
+                                  <strong>{{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].t_statistic) }}</strong>
+                                </div>
+                                <div class="metric-row">
+                                  <span>p-value:</span>
+                                  <strong class="{% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
+                                    {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].p_value) }}
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="metric-group">
+                              <div class="metric-header">
+                                <i class="fas fa-ruler"></i>
+                                <span>Effect Size Dettagli</span>
+                              </div>
+                              <div class="metric-content">
+                                <div class="effect-size-interpretation">
+                                  {{ risultato.statistiche.t_tests[altra_serie].effect_size }}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                  // Gestione espansione dettagli
+                  document.querySelectorAll('.expand-details').forEach(button => {
+                    button.addEventListener('click', function() {
+                      const card = this.closest('.stat-comparison-card');
+                      const details = card.querySelector('.advanced-details');
+                      const icon = this.querySelector('i');
+                      
+                      details.classList.toggle('hidden');
+                      icon.classList.toggle('fa-chevron-down');
+                      icon.classList.toggle('fa-chevron-up');
+                      
+                      if (!details.classList.contains('hidden')) {
+                        details.style.maxHeight = details.scrollHeight + 'px';
+                      } else {
+                        details.style.maxHeight = null;
+                      }
+                    });
+                  });
+
+                  // Toggle dettagli avanzati globale
+                  document.querySelectorAll('.toggle-details-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                      const section = this.closest('.correlations-section');
+                      const details = section.querySelectorAll('.advanced-details');
+                      const icon = this.querySelector('i');
+                      
+                      details.forEach(detail => {
+                        detail.classList.toggle('hidden');
+                        if (!detail.classList.contains('hidden')) {
+                          detail.style.maxHeight = detail.scrollHeight + 'px';
+                        } else {
+                          detail.style.maxHeight = null;
+                        }
+                      });
+                      
+                      icon.classList.toggle('fa-chevron-down');
+                      icon.classList.toggle('fa-chevron-up');
+                    });
+                  });
+
+                  // Tooltip initialization (using Tippy.js)
+                  tippy('[data-tooltip]', {
+                    placement: 'top',
+                    arrow: true,
+                    theme: 'stat-info'
+                  });
+                });
+              </script>
               
               {% else %}
               <div class="error-message">
@@ -213,6 +436,8 @@
       </div>
     </div>
     
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
     <script>
       // Add fullscreen functionality
       document.addEventListener('DOMContentLoaded', function() {
@@ -240,6 +465,35 @@
           if (e.key === 'Escape' && overlay.classList.contains('active')) {
             overlay.classList.remove('active');
           }
+        });
+
+        // Toggle dettagli avanzati
+        const toggleBtns = document.querySelectorAll('.toggle-details-btn');
+        
+        toggleBtns.forEach(btn => {
+          btn.addEventListener('click', function() {
+            const card = this.closest('.correlations-section');
+            const detailsElements = card.querySelectorAll('.advanced-details');
+            const icon = this.querySelector('i');
+            
+            detailsElements.forEach(el => {
+              el.classList.toggle('hidden');
+            });
+            
+            icon.classList.toggle('fa-chevron-down');
+            icon.classList.toggle('fa-chevron-up');
+          });
+        });
+
+        // Inizializza i tooltip
+        const tooltipTriggers = document.querySelectorAll('[data-tooltip]');
+        tooltipTriggers.forEach(trigger => {
+          tippy(trigger, {
+            content: trigger.getAttribute('data-tooltip'),
+            placement: 'top',
+            arrow: true,
+            theme: 'stat-info'
+          });
         });
       });
 

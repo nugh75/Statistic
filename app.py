@@ -180,13 +180,15 @@ def index():
                 except Exception as e:
                     print(f"[DEBUG] Errore nella conversione della colonna {colonna}: {str(e)}")
 
-            # Calcola la matrice di correlazione una sola volta
+            # Calcola la matrice di correlazione e t-test una sola volta
             matrice_correlazione_img = None
             correlazioni = None
+            t_tests = None
             legenda = {}
             if len(all_series) > 1:
                 matrice_correlazione_img, legenda = generate_correlation_matrix(all_series)
                 correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
+                t_tests = StatisticheCalcolatore.calcola_ttest_coppie(all_series)
 
             # Ora processiamo ogni serie per le statistiche
             for colonna, dati in all_series.items():
@@ -228,6 +230,10 @@ def index():
                     # Aggiungi le correlazioni se disponibili
                     if correlazioni:
                         stats_dict['correlazioni'] = correlazioni[colonna]
+                    
+                    # Aggiungi i t-test se disponibili
+                    if t_tests and colonna in t_tests:
+                        stats_dict['t_tests'] = t_tests[colonna]
                     
                     # Serializza i dati
                     stats_json = json.dumps(stats_dict)

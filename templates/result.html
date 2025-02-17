@@ -155,15 +155,31 @@
               <!-- Correlazioni -->
               {% if risultato.statistiche.correlazioni %}
               <div class="correlations-section">
-                <h4>Correlazioni con altre serie</h4>
+                <h4>Correlazioni e Test Statistici</h4>
                 <div class="correlations-grid">
                   {% for altra_serie, correlazione in risultato.statistiche.correlazioni.items() %}
                     {% if altra_serie != risultato.serie %}
                     <div class="correlation-item">
-                      <span class="correlation-label">{{ altra_serie }}:</span>
-                      <span class="correlation-value {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
-                        {{ "%.4f"|format(correlazione) }}
-                      </span>
+                      <div class="correlation-header">
+                        <span class="correlation-label">{{ altra_serie }}</span>
+                      </div>
+                      <div class="correlation-details">
+                        <span class="correlation-value {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
+                          Correlazione: {{ "%.4f"|format(correlazione) }}
+                        </span>
+                        {% if risultato.statistiche.t_tests and altra_serie in risultato.statistiche.t_tests %}
+                        <div class="ttest-results">
+                          <span class="ttest-stat">t-stat: {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].t_statistic) }}</span>
+                          <span class="ttest-pvalue {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
+                            p-value: {{ "%.4f"|format(risultato.statistiche.t_tests[altra_serie].p_value) }}
+                          </span>
+                          <div class="effect-size {% if risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.8 %}large{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.5 %}medium{% elif risultato.statistiche.t_tests[altra_serie].cohens_d|abs > 0.2 %}small{% endif %}">
+                            Effect size: {{ "%.3f"|format(risultato.statistiche.t_tests[altra_serie].cohens_d) }}
+                            ({{ risultato.statistiche.t_tests[altra_serie].effect_size }})
+                          </div>
+                        </div>
+                        {% endif %}
+                      </div>
                     </div>
                     {% endif %}
                   {% endfor %}

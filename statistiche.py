@@ -304,6 +304,127 @@ class StatisticheCalcolatore:
         return result
 
     @staticmethod
+    def calcola_cohens_d(serie1: List[float], serie2: List[float]) -> float:
+        """
+        Calcola Cohen's d come misura dell'effect size.
+        
+        Args:
+            serie1: Prima serie di numeri
+            serie2: Seconda serie di numeri
+            
+        Returns:
+            float: Cohen's d effect size
+        """
+        # Calcola le medie
+        mean1 = StatisticheCalcolatore.calcola_media(serie1)
+        mean2 = StatisticheCalcolatore.calcola_media(serie2)
+        
+        # Calcola le varianze dei campioni
+        var1 = StatisticheCalcolatore.calcola_varianza(serie1, popolazione=False)
+        var2 = StatisticheCalcolatore.calcola_varianza(serie2, popolazione=False)
+        
+        # Calcola la deviazione standard combinata
+        n1 = len(serie1)
+        n2 = len(serie2)
+        s_p = math.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
+        
+        # Calcola Cohen's d
+        d = (mean1 - mean2) / s_p if s_p != 0 else 0
+        
+        return float(d)
+
+    @staticmethod
+    def interpreta_cohens_d(d: float) -> str:
+        """
+        Interpreta il valore di Cohen's d.
+        
+        Args:
+            d: Valore di Cohen's d
+            
+        Returns:
+            str: Interpretazione dell'effect size
+        """
+        d = abs(d)  # Usa il valore assoluto per l'interpretazione
+        if d < 0.2:
+            return "trascurabile"
+        elif d < 0.5:
+            return "piccolo"
+        elif d < 0.8:
+            return "medio"
+        else:
+            return "grande"
+
+    @staticmethod
+    def calcola_ttest(serie1: List[float], serie2: List[float]) -> Dict[str, float]:
+        """
+        Calcola il t-test per due serie di dati.
+        
+        Args:
+            serie1: Prima serie di numeri
+            serie2: Seconda serie di numeri
+            
+        Returns:
+            Dict[str, float]: Dizionario con statistica t, p-value e effect size (Cohen's d)
+        """
+        from scipy import stats
+        
+        # Calcola il t-test a due code per campioni indipendenti
+        t_stat, p_value = stats.ttest_ind(serie1, serie2)
+        
+        # Calcola Cohen's d
+        d = StatisticheCalcolatore.calcola_cohens_d(serie1, serie2)
+        effect_size_interp = StatisticheCalcolatore.interpreta_cohens_d(d)
+        
+        return {
+            "t_statistic": float(t_stat),
+            "p_value": float(p_value),
+            "cohens_d": float(d),
+            "effect_size": effect_size_interp
+        }
+
+    @staticmethod
+    def calcola_ttest_coppie(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """
+        Calcola il t-test per ogni coppia di serie.
+        
+        Args:
+            serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
+            
+        Returns:
+            Dict: Dizionario strutturato come:
+                 {serie1: {serie2: {"t_statistic": float, "p_value": float}}}
+        """
+        result = {}
+        
+        # Trova la lunghezza minima tra tutte le serie
+        min_length = min(len(values) for values in serie_dati.values())
+        
+        # Tronca tutte le serie alla lunghezza minima
+        adjusted_data = {
+            name: values[:min_length] 
+            for name, values in serie_dati.items()
+        }
+        
+        # Calcola t-test per ogni coppia di serie
+        for serie1 in adjusted_data:
+            result[serie1] = {}
+            for serie2 in adjusted_data:
+                if serie1 != serie2:
+                    try:
+                        result[serie1][serie2] = StatisticheCalcolatore.calcola_ttest(
+                            adjusted_data[serie1],
+                            adjusted_data[serie2]
+                        )
+                    except Exception as e:
+                        print(f"Error calculating t-test between {serie1} and {serie2}: {str(e)}")
+                        result[serie1][serie2] = {
+                            "t_statistic": 0.0,
+                            "p_value": 1.0
+                        }
+        
+        return result
+
+    @staticmethod
     def crea_heatmap_correlazione(correlazioni: Dict[str, Dict[str, float]], percorso_file: str, use_etichette_brevi: bool = True, 
                                  figsize: Tuple[int, int] = (12, 8)) -> Dict[str, str]:
         """

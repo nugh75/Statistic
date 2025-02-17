@@ -1058,3 +1058,66 @@ tr:hover {
     color: #994444;
     border-left: 4px solid #fc8181;
 }
+
+/* T-test Results Styles */
+.ttest-results {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.ttest-stat {
+    color: #4a5568;
+    font-family: monospace;
+}
+
+.ttest-pvalue {
+    color: #718096;
+    font-family: monospace;
+}
+
+.ttest-pvalue.significant {
+    color: #2c7a7b;
+    font-weight: bold;
+}
+
+.correlation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.correlation-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Effect Size Styles */
+.effect-size {
+    margin-top: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    display: inline-block;
+}
+
+.effect-size.large {
+    background-color: #fad7dd;
+    color: #9b2c2c;
+    border-left: 3px solid #c53030;
+}
+
+.effect-size.medium {
+    background-color: #feebc8;
+    color: #975a16;
+    border-left: 3px solid #c05621;
+}
+
+.effect-size.small {
+    background-color: #e6ffed;
+    color: #276749;
+    border-left: 3px solid #38a169;
+}

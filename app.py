@@ -15,18 +15,24 @@ from flask import Flask, request, render_template, redirect, url_for, flash, jso
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
 
-app = Flask(__name__)
+# Initialize Flask app with explicit static folder configuration
+app = Flask(__name__, 
+    static_url_path='/static',
+    static_folder='static')
+
+# Configuration
 app.config['SECRET_KEY'] = 'sostituisci_con_una_chiave_segreta'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calcoli.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable cache for development
 
 # Add template filter for JSON parsing
 @app.template_filter('from_json')
 def from_json(value):
     return json.loads(value) if value else None
 
+# Initialize database
 db.init_app(app)
-
 with app.app_context():
     db.create_all()
 
@@ -506,4 +512,5 @@ def elimina_multipli():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    # Enable threaded mode for better performance
+    app.run(debug=True, port=5001, threaded=True, host='0.0.0.0')

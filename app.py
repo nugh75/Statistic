@@ -276,9 +276,14 @@ def index():
                     valori_json = json.dumps(dati)
                     
                     # Crea il record nel database
+                    if 'media' in stats_dict:
+                        risultato_valore = float(stats_dict['media'])
+                    else:
+                        risultato_valore = 0.0  # Valore di fallback sicuro
+
                     calcolo = Calcolo(
                         nome=nome,
-                        risultato=float(statistiche['deviazione_standard_popolazione']),
+                        risultato=risultato_valore,
                         note=note,
                         serie_nome=colonna,
                         valori=valori_json,

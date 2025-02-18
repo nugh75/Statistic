@@ -14,6 +14,17 @@ import numpy as np
 from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file, abort
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log')
+    ]
+)
 
 # Initialize Flask app with explicit static folder configuration
 app = Flask(__name__, 
@@ -21,10 +32,14 @@ app = Flask(__name__,
     static_folder='static')
 
 # Configuration
-app.config['SECRET_KEY'] = 'sostituisci_con_una_chiave_segreta'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calcoli.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable cache for development
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'sostituisci_con_una_chiave_segreta'),
+    SQLALCHEMY_DATABASE_URI='sqlite:///calcoli.db',
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SEND_FILE_MAX_AGE_DEFAULT=0,  # Disable cache for development
+    DEBUG=False,  # Default to False for security
+    TEMPLATES_AUTO_RELOAD=True
+)
 
 # Add cache control headers for static files
 @app.after_request
@@ -48,8 +63,8 @@ def format_float(value):
         return str(value)
 
 # Initialize database
-db.init_app(app)
 with app.app_context():
+    db.init_app(app)
     db.create_all()
 
 def generate_plots(data, title, all_series=None):
@@ -168,27 +183,34 @@ def index():
             return redirect(request.url)
         
         try:
-            print(f"[DEBUG] Elaborazione file: {file.filename}")
             df = pd.read_excel(file)
-            print(f"[DEBUG] File caricato con successo")
-            print(f"[DEBUG] Colonne trovate: {df.columns.tolist()}")
+            logging.info(f"File caricato con successo: {file.filename}")
             
-            if df.empty:
+            if (df.empty):
                 flash("Il file Excel è vuoto")
                 return redirect(request.url)
             
             risultati = []
             all_series = {}
             
-            # Prima passiamo attraverso le colonne per raccogliere tutti i dati validi
-            for colonna in df.columns:
-                try:
-                    dati = pd.to_numeric(df[colonna], errors='coerce').dropna().tolist()
-                    if dati:
-                        all_series[colonna] = dati
-                except Exception as e:
-                    print(f"[DEBUG] Errore nella conversione della colonna {colonna}: {str(e)}")
-
+            # Process data in batches
+            batch_size = 1000
+            for start in range(0, len(df), batch_size):
+                batch = df.iloc[start:start + batch_size]
+                
+                # Process each column in the batch
+                for colonna in batch.columns:
+                    try:
+                        dati = pd.to_numeric(batch[colonna], errors='coerce').dropna().tolist()
+                        if colonna in all_series:
+                            all_series[colonna].extend(dati)
+                        else:
+                            all_series[colonna] = dati
+                    except (ValueError, TypeError) as e:
+                        logging.warning(f"Errore di conversione nella colonna {colonna}: {str(e)}")
+                    except Exception as e:
+                        logging.error(f"Errore non previsto nella colonna {colonna}: {str(e)}")
+            
             # Calcola la matrice di correlazione e t-test una sola volta
             matrice_correlazione_img = None
             correlazioni = None
@@ -198,7 +220,7 @@ def index():
                 matrice_correlazione_img, legenda = generate_correlation_matrix(all_series)
                 correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
                 t_tests = StatisticheCalcolatore.calcola_ttest_coppie(all_series)
-
+            
             # Ora processiamo ogni serie per le statistiche
             for colonna, dati in all_series.items():
                 try:
@@ -231,12 +253,11 @@ def index():
                     plots = generate_plots(dati, colonna)
                     stats_dict['plots'] = plots
                     
-                    # Aggiungi la matrice di correlazione al primo risultato
-                    if matrice_correlazione_img and len(risultati) == 0:
+                    # Aggiungi la matrice di correlazione a tutte le serie
+                    if matrice_correlazione_img:
                         stats_dict['plots']['correlation'] = matrice_correlazione_img
                         stats_dict['legenda'] = legenda
                     
-                    # Aggiungi le correlazioni se disponibili
                     # Aggiungi le correlazioni se disponibili
                     if correlazioni and colonna in correlazioni:
                         stats_dict['correlazioni'] = correlazioni[colonna]
@@ -281,7 +302,7 @@ def index():
             
             try:
                 db.session.commit()
-                return render_template('result.html', risultati=risultati, nome=nome, note=note)
+                return render_template('risultato.html', risultati=risultati, nome=nome, note=note)
             except Exception as e:
                 db.session.rollback()
                 print(f"[DEBUG] Errore nel salvataggio nel database: {str(e)}")
@@ -289,7 +310,7 @@ def index():
                 return redirect(request.url)
                 
         except Exception as e:
-            print(f"[DEBUG] Errore generale: {str(e)}")
+            logging.error(f"Errore generale durante l'elaborazione del file: {str(e)}")
             flash(f"Errore durante l'elaborazione del file: {str(e)}")
             return redirect(request.url)
     
@@ -297,48 +318,38 @@ def index():
 
 @app.route('/registro')
 def registro():
-    calcoli = Calcolo.query.order_by(Calcolo.data_creazione.desc()).all()
-    for calcolo in calcoli:
-        if calcolo.statistiche:
-            try:
-                # Parse JSON statistiche
-                stats = json.loads(calcolo.statistiche)
-                
-                # Normalizza le correlazioni
-                if 'correlazioni' in stats:
-                    correlazioni = stats['correlazioni']
-                    if isinstance(correlazioni, dict):
-                        # Se è un dizionario di dizionari, appiattisci
-                        if any(isinstance(v, dict) for v in correlazioni.values()):
-                            correlazioni_piatte = {}
-                            for serie1, values in correlazioni.items():
-                                if isinstance(values, dict):
-                                    for serie2, corr in values.items():
-                                        if isinstance(corr, (int, float)):
-                                            correlazioni_piatte[serie2] = float(corr)
-                                elif isinstance(values, (int, float)):
-                                    correlazioni_piatte[serie1] = float(values)
-                            stats['correlazioni'] = correlazioni_piatte
-                
-                # Normalizza i t-test
-                if 't_tests' in stats:
-                    t_tests = stats['t_tests']
-                    if isinstance(t_tests, dict):
-                        for serie, test_results in t_tests.items():
-                            if isinstance(test_results, dict):
-                                # Assicurati che p_value e cohens_d siano float
-                                if 'p_value' in test_results:
-                                    test_results['p_value'] = float(test_results['p_value'])
-                                if 'cohens_d' in test_results:
-                                    test_results['cohens_d'] = float(test_results['cohens_d'])
-                
-                calcolo.statistiche = stats
-                
-            except (json.JSONDecodeError, ValueError) as e:
-                print(f"Errore nella normalizzazione dei dati per il calcolo {calcolo.id}: {str(e)}")
-                calcolo.statistiche = None
-    
-    return render_template('registro.html', calcoli=calcoli)
+    try:
+        calcoli = Calcolo.query.order_by(Calcolo.data_creazione.desc()).all()
+        
+        for calcolo in calcoli:
+            if calcolo.statistiche:
+                try:
+                    stats = json.loads(calcolo.statistiche)
+                    if isinstance(stats, dict):
+                        # Ensure all numeric fields are properly converted to float
+                        if 'media' in stats:
+                            stats['media'] = float(stats['media'])
+                        if 'deviazione_standard_popolazione' in stats:
+                            stats['deviazione_standard_popolazione'] = float(stats['deviazione_standard_popolazione'])
+                        if 'count' in stats:
+                            stats['count'] = int(stats['count'])
+                        calcolo.statistiche = stats
+                    else:
+                        calcolo.statistiche = {}
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    logging.warning(f"Invalid statistics for calculation {calcolo.id}: {str(e)}")
+                    calcolo.statistiche = {}
+            else:
+                calcolo.statistiche = {}
+        
+        return render_template('registro.html', calcoli=calcoli)
+    except Exception as e:
+        logging.error(f"Error in registro route: {str(e)}")
+        return render_template('500.html'), 500
+
+@app.route('/calcoli/sposta', methods=['POST'])
+def sposta_calcoli():
+    return jsonify({'error': 'Operazione non più supportata'}), 400
 
 @app.route('/esporta_pdf/<int:id>')
 def esporta_pdf(id):
@@ -383,9 +394,7 @@ def esporta_pdf(id):
             )
             
     except Exception as e:
-        import traceback
-        print(f"Errore durante l'esportazione del PDF: {str(e)}")
-        print(traceback.format_exc())  # Stampa lo stack trace completo
+        logging.error(f"Errore durante l'esportazione del PDF per l'ID {id}: {str(e)}")
         flash(f"Errore durante l'esportazione del PDF: {str(e)}")
         return redirect(url_for('registro'))
 
@@ -573,7 +582,87 @@ def elimina_multipli():
         print(f"Errore durante l'eliminazione multipla: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/risultato/<int:id>')
+def visualizza_risultato(id):
+    calcolo = Calcolo.query.get_or_404(id)
+    
+    try:
+        # Load values and existing statistics
+        valori = json.loads(calcolo.valori) if calcolo.valori else []
+        statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+        
+        # If we have values but no statistics, recalculate them
+        if valori and not statistiche:
+            stats = StatisticheCalcolatore.calcola_tutte_statistiche(valori)
+            plots = generate_plots(valori, calcolo.serie_nome)
+            
+            statistiche = {
+                'count': len(valori),
+                'media': float(stats['media']),
+                'mediana': float(stats['mediana']),
+                'moda': stats['moda'][0] if isinstance(stats['moda'], (list, tuple)) else stats['moda'],
+                'deviazione_standard_popolazione': float(stats['deviazione_standard_popolazione']),
+                'deviazione_standard_campione': float(stats['deviazione_standard_campione']),
+                'varianza_popolazione': float(stats['varianza_popolazione']),
+                'varianza_campione': float(stats['varianza_campione']),
+                'range': float(stats['range']),
+                'quartili': {
+                    'Q1': float(stats['quartili']['Q1']),
+                    'Q2': float(stats['quartili']['Q2']),
+                    'Q3': float(stats['quartili']['Q3'])
+                },
+                'min_max': {
+                    'min': float(stats['min_max']['min']),
+                    'max': float(stats['min_max']['max'])
+                },
+                'plots': plots
+            }
+            
+            # Save the recalculated statistics
+            calcolo.statistiche = json.dumps(statistiche)
+            db.session.commit()
+        
+        return render_template('risultato.html',
+                           risultato={
+                               'serie': calcolo.serie_nome,
+                               'statistiche': statistiche
+                           },
+                           nome=calcolo.nome,
+                           note=calcolo.note)
+                            
+    except Exception as e:
+        logging.error(f"Errore nel calcolo delle statistiche: {str(e)}")
+        return render_template('risultato.html',
+                           risultato={
+                               'serie': calcolo.serie_nome,
+                               'statistiche': {}
+                           },
+                           nome=calcolo.nome,
+                           note=calcolo.note)
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('500.html'), 500
+
 if __name__ == '__main__':
-    app.config['DEBUG'] = True  # Enable debug mode
-    app.config['TEMPLATES_AUTO_RELOAD'] = True  # Enable template auto-reload
-    app.run(debug=True, port=5003, threaded=True, host='0.0.0.0')
+    # Get configuration from environment variables
+    debug_mode = os.environ.get('FLASK_ENV', 'production').lower() == 'development'
+    port = int(os.environ.get('FLASK_PORT', 5003))
+    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    
+    # Additional security check for debug mode
+    if debug_mode and os.environ.get('FLASK_ENV') == 'development':
+        app.debug = True
+    else:
+        app.debug = False
+    
+    app.run(
+        port=port,
+        threaded=True,
+        host=host
+    )

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Risultato Analisi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/@popperjs/core@2" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div id="fullscreenOverlay" class="fullscreen-overlay">
+      <div class="close-fullscreen">&times;</div>
+      <img id="fullscreenImage" class="fullscreen-image" src="" alt="Fullscreen view">
+    </div>
+    
+    <div class="container">
+      <nav class="top-nav">
+        <a href="{{ url_for('registro') }}" class="nav-link">
+          <i class="fas fa-arrow-left"></i> Torna al Registro
+        </a>
+      </nav>
+
+      <div class="calcolo-info">
+        <h1>{{ nome }}</h1>
+        {% if note %}
+          <div class="note-box">
+            <h3>Note:</h3>
+            <p>{{ note }}</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="result-card">
+        <h3>Serie: {{ risultato.serie }}</h3>
+        
+        {% if risultato.statistiche and risultato.statistiche.media is defined %}
+          <div class="calcolo-section">
+            <h4>Statistiche</h4>
+            <div class="stats-container">
+              <div class="stats-summary">
+                <details open>
+                  <summary>Statistiche Base</summary>
+                  <div class="section-content">
+                    <div class="stats-grid-compact">
+                      <div class="stat-metric">
+                        <div class="metric-group">
+                          <h5>Misure Centrali</h5>
+                          <ul>
+                            <li>Media: <strong>{{ "%.4f"|format(risultato.statistiche.media|float) }}</strong></li>
+                            <li>Mediana: <strong>{{ "%.4f"|format(risultato.statistiche.mediana|float) }}</strong></li>
+                            {% if risultato.statistiche.moda is defined %}
+                              {% if risultato.statistiche.moda is string %}
+                                <li>Moda: <strong>{{ "%.4f"|format(risultato.statistiche.moda|float) }}</strong></li>
+                              {% elif risultato.statistiche.moda is sequence and risultato.statistiche.moda|length == 1 %}
+                                <li>Moda: <strong>{{ "%.4f"|format(risultato.statistiche.moda[0]|float) }}</strong></li>
+                              {% elif risultato.statistiche.moda is sequence %}
+                                <li>Moda: <strong>{{ risultato.statistiche.moda|map('float')|map('format_float')|join(', ') }}</strong></li>
+                              {% else %}
+                                <li>Moda: <strong>{{ "%.4f"|format(risultato.statistiche.moda|float) }}</strong></li>
+                              {% endif %}
+                            {% endif %}
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Misure di Dispersione</h5>
+                          <ul>
+                            <li>Dev. Std. (Pop): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_popolazione) }}</strong></li>
+                            <li>Dev. Std. (Camp): <strong>{{ "%.4f"|format(risultato.statistiche.deviazione_standard_campione) }}</strong></li>
+                            <li>Varianza (Pop): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_popolazione) }}</strong></li>
+                            <li>Varianza (Camp): <strong>{{ "%.4f"|format(risultato.statistiche.varianza_campione) }}</strong></li>
+                            <li>Range: <strong>{{ "%.4f"|format(risultato.statistiche.range) }}</strong></li>
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Quartili e Range</h5>
+                          <ul>
+                            <li>Q1: <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q1) }}</strong></li>
+                            <li>Q2: <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q2) }}</strong></li>
+                            <li>Q3: <strong>{{ "%.4f"|format(risultato.statistiche.quartili.Q3) }}</strong></li>
+                          </ul>
+                        </div>
+
+                        <div class="metric-group">
+                          <h5>Valori Estremi</h5>
+                          <ul>
+                            <li>Minimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.min) }}</strong></li>
+                            <li>Massimo: <strong>{{ "%.4f"|format(risultato.statistiche.min_max.max) }}</strong></li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              {% if risultato.statistiche.plots %}
+              <div class="visualizations-section">
+                <div class="stats-summary">
+                  <details>
+                    <summary>Visualizzazioni</summary>
+                    <div class="section-content">
+                      <div class="plots-grid">
+                        {% if risultato.statistiche.plots.histogram %}
+                        <div class="plot-card">
+                          <h5>Istogramma con KDE e Distribuzione Normale</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.histogram }}" alt="Histogram" class="zoomable">
+                        </div>
+                        {% endif %}
+                        
+                        {% if risultato.statistiche.plots.boxplot %}
+                        <div class="plot-card">
+                          <h5>Box Plot</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.boxplot }}" alt="Box Plot" class="zoomable">
+                        </div>
+                        {% endif %}
+                        
+                        {% if risultato.statistiche.plots.qqplot %}
+                        <div class="plot-card">
+                          <h5>Q-Q Plot (Test di Normalità)</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot" class="zoomable">
+                        </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="error-message">
+            <p>Errore: Statistiche non disponibili per questa serie</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="actions button-group">
+        <a href="{{ url_for('index') }}" class="btn">
+          <i class="fas fa-plus"></i>
+          <span class="btn-text">Nuovo Calcolo</span>
+        </a>
+        <a href="{{ url_for('registro') }}" class="btn btn-secondary">
+          <i class="fas fa-list"></i>
+          <span class="btn-text">Vai al Registro</span>
+        </a>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const overlay = document.getElementById('fullscreenOverlay');
+        const fullscreenImage = document.getElementById('fullscreenImage');
+        const closeBtn = document.querySelector('.close-fullscreen');
+        
+        document.querySelectorAll('.zoomable').forEach(img => {
+          img.addEventListener('click', function() {
+            fullscreenImage.src = this.src;
+            overlay.style.display = 'flex';
+          });
+        });
+        
+        closeBtn.addEventListener('click', function() {
+          overlay.style.display = 'none';
+        });
+        
+        overlay.addEventListener('click', function(e) {
+          if (e.target === overlay) {
+            overlay.style.display = 'none';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -3,740 +3,110 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Registro Calcoli Statistici</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Registro Calcoli</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
-    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
-    <!-- Add the fullscreen overlay container -->
-    <div id="fullscreenOverlay" class="fullscreen-overlay">
-      <div class="close-fullscreen">&times;</div>
-      <img id="fullscreenImage" class="fullscreen-image" src="" alt="Fullscreen view">
-    </div>
-
     <div class="container">
-      <h1>Registro dei Calcoli Statistici</h1>
+      <nav class="top-nav">
+        <a href="{{ url_for('index') }}" class="nav-link">
+          <i class="fas fa-calculator"></i> Nuovo Calcolo
+        </a>
+      </nav>
 
-      <!-- Export controls -->
-      <div class="export-controls" style="display: none;">
-        <div class="selected-series">
-          <h3>Serie Selezionate per l'Esportazione</h3>
-          <div id="selectedSeriesList" class="sortable-list">
-            <!-- Serie selezionate verranno aggiunte qui dinamicamente -->
-          </div>
-        </div>
-        <div class="export-actions">
-          <button id="exportSelectedPDF" class="btn btn-export">
-            <i class="fas fa-file-pdf"></i>
-            <span class="btn-text">Esporta PDF</span>
-          </button>
-          <button id="exportSelectedHTML" class="btn btn-export">
-            <i class="fas fa-file-code"></i>
-            <span class="btn-text">Esporta HTML</span>
-          </button>
-          <button id="cancelExport" class="btn btn-secondary">
-            <i class="fas fa-times"></i>
-            <span class="btn-text">Annulla</span>
-          </button>
-        </div>
-      </div>
-      
-      <!-- Bulk delete controls -->
-      <div class="bulk-actions">
-        <button id="toggleSelection" class="btn btn-secondary">
-          <i class="fas fa-check-square"></i>
-          <span class="btn-text">Seleziona</span>
-        </button>
-        <button id="selectAll" class="btn btn-secondary" style="display: none;">
-          <i class="fas fa-check-double"></i>
-          <span class="btn-text">Seleziona Tutto</span>
-        </button>
-        <button id="deleteSelected" class="btn btn-delete" style="display: none;">
-          <i class="fas fa-trash"></i>
-          <span class="btn-text">Elimina Selezionati</span>
-        </button>
-      </div>
+      <h1>Registro delle Analisi</h1>
 
-      <div class="registro">
+      <!-- Lista calcoli -->
+      <div class="registro-grid">
         {% for calcolo in calcoli %}
         <div class="calcolo-card">
           <div class="calcolo-header">
-            <div class="title-with-checkbox">
-              <div class="selection-checkbox" style="display: none;">
-                <input type="checkbox" class="calc-select" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
-              </div>
-              <h3>{{ calcolo.nome }}</h3>
-            </div>
-            <div class="card-metadata">
-              <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
-            </div>
+            <h3>{{ calcolo.nome }}</h3>
+            <div class="serie-info">Serie: {{ calcolo.serie_nome }}</div>
           </div>
           
           <div class="calcolo-content">
-            <p class="serie-nome">Serie: <strong>{{ calcolo.serie_nome }}</strong></p>
-            
-            {% if calcolo.statistiche %}
-              {% set stats = calcolo.statistiche %}
-              {% if not stats is mapping %}
-                {% set stats = calcolo.statistiche|tojson|safe|from_json %}
-              {% endif %}
-              
-              <div class="stats-container">
-                <div class="stats-summary">
-                  <details>
-                    <summary>Statistiche</summary>
-                    <div class="section-content">
-                      <div class="stats-grid-compact">
-                        <div class="stat-metric">
-                          <div class="metric-group">
-                            <h5>Misure Centrali</h5>
-                            <ul>
-                              <li>Media: <strong>{{ "%.4f"|format(stats.media) }}</strong></li>
-                              <li>Mediana: <strong>{{ "%.4f"|format(stats.mediana) }}</strong></li>
-                              <li>Moda: 
-                                <strong>
-                                  {% if stats.moda is string or stats.moda is number %}
-                                    {{ "%.4f"|format(stats.moda) }}
-                                  {% else %}
-                                    {% for val in stats.moda %}
-                                      {{ "%.4f"|format(val) }}{% if not loop.last %}, {% endif %}
-                                    {% endfor %}
-                                  {% endif %}
-                                </strong>
-                              </li>
-                            </ul>
-                          </div>
-
-                          <div class="metric-group">
-                            <h5>Misure di Dispersione</h5>
-                            <ul>
-                              <li>Dev. Std. (pop.): <strong>{{ "%.4f"|format(stats.deviazione_standard_popolazione) }}</strong></li>
-                              <li>Dev. Std. (camp.): <strong>{{ "%.4f"|format(stats.deviazione_standard_campione) }}</strong></li>
-                              <li>Range: <strong>{{ "%.4f"|format(stats.range) }}</strong></li>
-                              <li>Varianza (pop.): <strong>{{ "%.6f"|format(stats.varianza_popolazione) }}</strong></li>
-                              <li>Varianza (camp.): <strong>{{ "%.6f"|format(stats.varianza_campione) }}</strong></li>
-                            </ul>
-                          </div>
-
-                          <div class="metric-group">
-                            <h5>Quartili e Range</h5>
-                            <ul>
-                              <li>Minimo: <strong>{{ "%.4f"|format(stats.min_max.min) }}</strong></li>
-                              <li>Q1 (25° perc.): <strong>{{ "%.4f"|format(stats.quartili.Q1) }}</strong></li>
-                              <li>Q2 (Mediana): <strong>{{ "%.4f"|format(stats.quartili.Q2) }}</strong></li>
-                              <li>Q3 (75° perc.): <strong>{{ "%.4f"|format(stats.quartili.Q3) }}</strong></li>
-                              <li>Massimo: <strong>{{ "%.4f"|format(stats.min_max.max) }}</strong></li>
-                            </ul>
-                          </div>
-
-                          <div class="metric-group">
-                            <h5>Informazioni Dataset</h5>
-                            <ul>
-                              <li>N. Osservazioni: <strong>{{ stats.count }}</strong></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-              </div>
-
-              <!-- Correlazioni e Test Statistici -->
-              {% if stats.correlazioni %}
-              <div class="correlations-section">
-                <div class="stats-summary">
-                  <details>
-                    <summary>Correlazioni e Test Statistici</summary>
-                    <div class="section-content">
-                      <div class="correlation-guide">
-                        <div class="guide-item">
-                          <i class="fas fa-info-circle"></i>
-                          <span>P-value < 0.05 indica una differenza statisticamente significativa</span>
-                        </div>
-                        <div class="guide-item">
-                          <i class="fas fa-ruler-horizontal"></i>
-                          <span>Effect size (d): <0.2 trascurabile, 0.2-0.5 piccolo, 0.5-0.8 medio, >0.8 grande</span>
-                        </div>
-                      </div>
-
-                      <div class="stats-grid">
-                        {% for altra_serie, correlazione in stats.correlazioni.items() %}
-                          {% if altra_serie != calcolo.serie_nome and correlazione is number %}
-                            <div class="stat-comparison-card">
-                              <div class="comparison-header">
-                                <div class="header-main">
-                                  <h5>{{ altra_serie }}</h5>
-                                  {% if stats.t_tests and altra_serie in stats.t_tests and stats.t_tests[altra_serie].p_value is defined %}
-                                    <div class="significance-badge {% if stats.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
-                                      {% if stats.t_tests[altra_serie].p_value < 0.05 %}
-                                        <i class="fas fa-star"></i> Significativo
-                                      {% else %}
-                                        <i class="fas fa-times"></i> Non significativo
-                                      {% endif %}
-                                    </div>
-                                  {% endif %}
-                                </div>
-                              </div>
-
-                              <div class="base-metrics">
-                                <div class="metric-pill correlation {% if correlazione > 0.7 %}high-positive{% elif correlazione < -0.7 %}high-negative{% endif %}">
-                                  <i class="fas fa-link"></i>
-                                  <span>Correlazione: {{ "%.4f"|format(correlazione) }}</span>
-                                </div>
-
-                                {% if stats.t_tests and altra_serie in stats.t_tests %}
-                                  {% if stats.t_tests[altra_serie].t_statistic is defined and stats.t_tests[altra_serie].p_value is defined %}
-                                    <div class="metric-pill t-test {% if stats.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
-                                      <i class="fas fa-calculator"></i>
-                                      <span>T-test</span>
-                                      <span>t-statistic: {{ "%.4f"|format(stats.t_tests[altra_serie].t_statistic) }}</span>
-                                      <span>p-value: {{ "%.4f"|format(stats.t_tests[altra_serie].p_value) }}</span>
-                                    </div>
-                                  {% endif %}
-
-                                  <div class="metric-pill effect-size {% if stats.t_tests[altra_serie].cohens_d is defined %}{% if stats.t_tests[altra_serie].cohens_d|abs > 0.8 %}large{% elif stats.t_tests[altra_serie].cohens_d|abs > 0.5 %}medium{% elif stats.t_tests[altra_serie].cohens_d|abs > 0.2 %}small{% endif %}{% endif %}">
-                                    <i class="fas fa-ruler-horizontal"></i>
-                                    <span>Effect Size</span>
-                                    {% if stats.t_tests[altra_serie].cohens_d is defined %}
-                                      <span>d = {{ "%.3f"|format(stats.t_tests[altra_serie].cohens_d) }}</span>
-                                    {% endif %}
-                                    {% if stats.t_tests[altra_serie].p_value is defined %}
-                                      <small class="{% if stats.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">(p = {{ "%.4f"|format(stats.t_tests[altra_serie].p_value) }})</small>
-                                    {% endif %}
-                                    {% if stats.t_tests[altra_serie].effect_size %}
-                                      <div class="effect-size-interpretation">
-                                        {{ stats.t_tests[altra_serie].effect_size }}
-                                      </div>
-                                    {% endif %}
-                                  </div>
-                                {% endif %}
-                              </div>
-                            </div>
-                          {% endif %}
-                        {% endfor %}
-                      </div>
-                    </div>
-                  </details>
-                </div>
-              </div>
-              {% endif %}
-
-              <!-- Add Visualizations Section -->
-              {% if stats.plots %}
-              <div class="visualizations-section">
-                <div class="stats-summary">
-                  <details>
-                    <summary>Visualizzazioni Statistiche</summary>
-                    <div class="section-content">
-                      <div class="plots-grid">
-                        <!-- Histogram with KDE -->
-                        <div class="plot-card">
-                          <h5>Istogramma con KDE e Distribuzione Normale</h5>
-                          <img src="data:image/png;base64,{{ stats.plots.histogram }}" alt="Histogram">
-                        </div>
-                        
-                        <!-- Box Plot -->
-                        <div class="plot-card">
-                          <h5>Box Plot</h5>
-                          <img src="data:image/png;base64,{{ stats.plots.boxplot }}" alt="Box Plot">
-                        </div>
-                        
-                        <!-- Q-Q Plot -->
-                        <div class="plot-card">
-                          <h5>Q-Q Plot (Test di Normalità)</h5>
-                          <img src="data:image/png;base64,{{ stats.plots.qqplot }}" alt="Q-Q Plot">
-                        </div>
-
-                        <!-- Correlation Matrix in separate section -->
-                        {% if calcolo.statistiche.plots.correlation %}
-                        <div class="correlation-matrix-section">
-                          <h5>Matrice di Correlazione</h5>
-                          <div class="correlation-container">
-                            <div class="correlation-plot">
-                              <img src="data:image/png;base64,{{ calcolo.statistiche.plots.correlation }}" alt="Correlation Matrix">
-                            </div>
-
-                            {% if calcolo.statistiche.legenda %}
-                            <div class="correlation-legend">
-                              <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
-                              <p class="legend-description">La matrice sopra utilizza lettere per rappresentare le serie di dati. Qui sotto trovi il significato di ogni lettera:</p>
-                              <table class="legend-table">
-                                <thead>
-                                  <tr>
-                                    <th>Etichetta</th>
-                                    <th>Nome Serie</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                {% for lettera, nome in calcolo.statistiche.legenda.items() %}
-                                  <tr>
-                                    <td><strong>{{ lettera }}</strong></td>
-                                    <td>{{ nome }}</td>
-                                  </tr>
-                                {% endfor %}
-                                </tbody>
-                              </table>
-                            </div>
-                            {% endif %}
-                          </div>
-                        </div>
-                        {% endif %}
-                      </div>
-                    </div>
-                  </details>
-                </div>
-              </div>
-              {% endif %}
-
-            {% else %}
-              <!-- Per retrocompatibilità con i vecchi calcoli -->
-              <p>Deviazione Standard: <strong>{{ "%.4f"|format(calcolo.risultato) }}</strong></p>
+            {% if calcolo.note %}
+            <button class="note-toggle" onclick="toggleNote(this)">
+              <i class="fas fa-chevron-down"></i>
+              <span>Note</span>
+            </button>
+            <div class="note-content">
+              <strong>Note:</strong> {{ calcolo.note }}
+            </div>
             {% endif %}
 
-            {% if calcolo.note %}
-            <div class="note-box-compact">
-              <strong>Note:</strong> {{ calcolo.note }}
+            {% if calcolo.statistiche and calcolo.statistiche.media is defined %}
+            <div class="stats-preview">
+              <div class="stat-item">
+                <span class="stat-label">Media:</span>
+                <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.media|float) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Dev. Std.:</span>
+                <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.deviazione_standard_popolazione|float) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">N. oss:</span>
+                <span class="stat-value">{{ calcolo.statistiche.count }}</span>
+              </div>
             </div>
             {% endif %}
           </div>
 
           <div class="card-actions">
-            <div class="action-group">
-              <button class="btn btn-secondary select-for-export" data-id="{{ calcolo.id }}" data-nome="{{ calcolo.nome }}" data-serie="{{ calcolo.serie_nome }}">
-                <i class="fas fa-file-export"></i>
-                <span class="btn-text">Aggiungi all'Esportazione</span>
+            <a href="{{ url_for('visualizza_risultato', id=calcolo.id) }}" class="btn btn-primary" title="Visualizza Analisi">
+              <i class="fas fa-chart-bar"></i>
+            </a>
+            <div class="secondary-actions">
+              <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Modifica">
+                <i class="fas fa-edit"></i>
+              </a>
+              <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Esporta PDF">
+                <i class="fas fa-file-pdf"></i>
+              </a>
+              <button class="btn btn-danger btn-sm" onclick="eliminaCalcolo('{{ calcolo.id }}')" title="Elimina">
+                <i class="fas fa-trash"></i>
               </button>
             </div>
-            <div class="action-group">
-              <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-edit">
-                <i class="fas fa-edit"></i>
-                <span class="btn-text">Modifica</span>
-              </a>
-              <a href="{{ url_for('elimina_calcolo', id=calcolo.id) }}" class="btn btn-delete" onclick="return confirm('Sei sicuro di voler eliminare questo calcolo?');">
-                <i class="fas fa-trash-alt"></i>
-                <span class="btn-text">Elimina</span>
-              </a>
-            </div>
+          </div>
+          <div class="card-metadata">
+            <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
           </div>
         </div>
         {% endfor %}
       </div>
-      
-      <div class="actions center">
-        <a href="{{ url_for('index') }}" class="btn">
-          <i class="fas fa-home"></i>
-          <span class="btn-text">Torna alla Home</span>
+
+      {% if not calcoli %}
+      <div class="empty-state">
+        <i class="fas fa-calculator"></i>
+        <p>Nessun calcolo presente</p>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Nuovo Calcolo
         </a>
       </div>
+      {% endif %}
     </div>
 
-    <style>
-      .bulk-actions {
-        margin-bottom: 1rem;
-        display: flex;
-        gap: 1rem;
-      }
-      
-      .selection-checkbox {
-        display: inline-block;
-        margin-right: 1rem;
-        vertical-align: middle;
-      }
-      
-      .selection-checkbox input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-      }
-      
-      .title-with-checkbox {
-        display: flex;
-        align-items: center;
-      }
-      
-      .title-with-checkbox h3 {
-        margin: 0;
-      }
-      
-      .calcolo-card {
-        position: relative;
-      }
-      
-      /* Improve checkbox visibility */
-      input[type="checkbox"] {
-        accent-color: #3498db;
-      }
-
-      .export-controls {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-
-      .selected-series {
-        margin-bottom: 1.5rem;
-      }
-
-      .sortable-list {
-        min-height: 50px;
-        border: 2px dashed #e2e8f0;
-        border-radius: 6px;
-        padding: 1rem;
-        margin-top: 1rem;
-      }
-
-      .series-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #f8fafc;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        border-radius: 4px;
-        cursor: move;
-        transition: background-color 0.2s;
-      }
-
-      .series-item:hover {
-        background: #e2e8f0;
-      }
-
-      .series-handle {
-        cursor: move;
-        color: #64748b;
-        margin-right: 1rem;
-      }
-
-      .series-remove {
-        cursor: pointer;
-        color: #ef4444;
-        background: none;
-        border: none;
-        padding: 0.25rem;
-      }
-
-      .series-remove:hover {
-        color: #dc2626;
-      }
-
-      .export-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: flex-end;
-      }
-
-      .card-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e2e8f0;
-      }
-
-      .action-group {
-        display: flex;
-        gap: 1rem;
-      }
-
-      .select-for-export {
-        background-color: #2c3e50;
-      }
-
-      .select-for-export.selected {
-        background-color: #3498db;
-        color: white;
-      }
-
-      .select-for-export:hover {
-        background-color: #34495e;
-      }
-    </style>
-
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script src="https://unpkg.com/@popperjs/core@2"></script>
-    <script src="https://unpkg.com/tippy.js@6"></script>
     <script>
-      // Add fullscreen functionality
-      document.addEventListener('DOMContentLoaded', function() {
-        const overlay = document.getElementById('fullscreenOverlay');
-        const fullscreenImage = document.getElementById('fullscreenImage');
-        const closeBtn = document.querySelector('.close-fullscreen');
-        
-        // Make all plot images clickable
-        document.querySelectorAll('.plot-card img').forEach(img => {
-          img.addEventListener('click', function() {
-            fullscreenImage.src = this.src;
-            overlay.classList.add('active');
-          });
-        });
-        
-        // Close on clicking overlay or close button
-        overlay.addEventListener('click', function(e) {
-          if (e.target === overlay || e.target === closeBtn) {
-            overlay.classList.remove('active');
-          }
-        });
-        
-        // Close on ESC key
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && overlay.classList.contains('active')) {
-            overlay.classList.remove('active');
-          }
-        });
-
-        // Inizializza i tooltip
-        tippy('.info-tooltip', {
-          theme: 'stat-info',
-          placement: 'top',
-          arrow: true,
-          allowHTML: true,
-          maxWidth: 300
-        });
-
-        // Rendi le cards delle statistiche espandibili
-        document.querySelectorAll('.stat-comparison-card').forEach(card => {
-          card.addEventListener('click', function() {
-            this.classList.toggle('expanded');
-          });
-        });
-
-        // Hover effect per i metric pills
-        document.querySelectorAll('.metric-pill').forEach(pill => {
-          pill.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-2px)';
-          });
-          pill.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-          });
-        });
-      });
-
-      // Add multi-delete functionality
-      document.addEventListener('DOMContentLoaded', function() {
-        const toggleBtn = document.getElementById('toggleSelection');
-        const selectAllBtn = document.getElementById('selectAll');
-        const deleteBtn = document.getElementById('deleteSelected');
-        const checkboxes = document.querySelectorAll('.selection-checkbox');
-        let selectionMode = false;
-
-        toggleBtn.addEventListener('click', function() {
-          selectionMode = !selectionMode;
-          checkboxes.forEach(cb => cb.style.display = selectionMode ? 'inline-block' : 'none');
-          selectAllBtn.style.display = selectionMode ? 'block' : 'none';
-          deleteBtn.style.display = selectionMode ? 'block' : 'none';
-          toggleBtn.querySelector('.btn-text').textContent = selectionMode ? 'Annulla' : 'Seleziona';
-          if (!selectionMode) {
-            // Clear all selections when exiting selection mode
-            document.querySelectorAll('.calc-select').forEach(cb => cb.checked = false);
-          }
-        });
-
-        // Add select all functionality
-        selectAllBtn.addEventListener('click', function() {
-          const allCheckboxes = document.querySelectorAll('.calc-select');
-          const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
-          
-          allCheckboxes.forEach(cb => {
-            cb.checked = !allChecked;
-          });
-          
-          selectAllBtn.querySelector('.btn-text').textContent = 
-            allChecked ? 'Seleziona Tutto' : 'Deseleziona Tutto';
-        });
-
-        deleteBtn.addEventListener('click', async function() {
-          const selected = Array.from(document.querySelectorAll('.calc-select:checked'))
-                               .map(cb => cb.dataset.id);
-          
-          if (selected.length === 0) {
-            alert('Seleziona almeno un calcolo da eliminare');
-            return;
-          }
-
-          if (!confirm(`Sei sicuro di voler eliminare ${selected.length} calcoli?`)) {
-            return;
-          }
-
-          try {
-            const response = await fetch('/elimina_multipli', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ids: selected })
-            });
-
-            if (response.ok) {
-              // Reload page after successful deletion
-              window.location.reload();
-            } else {
-              alert('Errore durante l\'eliminazione dei calcoli');
-            }
-          } catch (error) {
-            console.error('Error:', error);
-            alert('Errore durante l\'eliminazione dei calcoli');
-          }
-        });
-      });
-
-      // Add export functionality
-      document.addEventListener('DOMContentLoaded', function() {
-        const exportControls = document.querySelector('.export-controls');
-        const selectedSeriesList = document.getElementById('selectedSeriesList');
-        const exportBtn = document.getElementById('exportSelected');
-        const cancelExportBtn = document.getElementById('cancelExport');
-        const selectBtns = document.querySelectorAll('.select-for-export');
-
-        // Initialize Sortable
-        new Sortable(selectedSeriesList, {
-          animation: 150,
-          handle: '.series-handle',
-          ghostClass: 'sortable-ghost'
-        });
-
-        // Add series to selection
-        function addSeries(id, nome, serie) {
-          const existingItem = document.querySelector(`[data-series-id="${id}"]`);
-          if (existingItem) return;
-
-          const item = document.createElement('div');
-          item.className = 'series-item';
-          item.dataset.seriesId = id;
-          item.innerHTML = `
-            <div class="series-info">
-              <i class="fas fa-grip-vertical series-handle"></i>
-              <span>${nome} - ${serie}</span>
-            </div>
-            <button class="series-remove" onclick="removeSeriesItem(this, '${id}');">
-              <i class="fas fa-times"></i>
-            </button>
-          `;
-          selectedSeriesList.appendChild(item);
-          checkSelectedSeries();
+      function eliminaCalcolo(id) {
+        if (confirm('Sei sicuro di voler eliminare questo calcolo?')) {
+          window.location.href = `/elimina/${id}`;
         }
+      }
 
-        // Function to remove a series item and update button state
-        function removeSeriesItem(button, id) {
-          const item = button.closest('.series-item');
-          if (item) {
-            item.remove();
-            // Reset corresponding select button state
-            const selectBtn = document.querySelector(`.select-for-export[data-id="${id}"]`);
-            if (selectBtn) {
-              selectBtn.classList.remove('selected');
-              const btnText = selectBtn.querySelector('.btn-text');
-              const btnIcon = selectBtn.querySelector('i');
-              btnText.textContent = 'Aggiungi all\'Esportazione';
-              btnIcon.className = 'fas fa-file-export';
-            }
-            checkSelectedSeries();
-          }
-        }
-
-        // Check if there are selected series
-        function checkSelectedSeries() {
-          const hasItems = selectedSeriesList.children.length > 0;
-          exportControls.style.display = hasItems ? 'block' : 'none';
-        }
-
-        // Handle selection button clicks
-        selectBtns.forEach(btn => {
-          btn.addEventListener('click', () => {
-            // Toggle selected state
-            btn.classList.toggle('selected');
-            const isSelected = btn.classList.contains('selected');
-            
-            // Update button text and icon
-            const btnText = btn.querySelector('.btn-text');
-            const btnIcon = btn.querySelector('i');
-            if (isSelected) {
-              btnText.textContent = 'Aggiunto all\'Esportazione';
-              btnIcon.className = 'fas fa-check';
-              addSeries(
-                btn.dataset.id,
-                btn.dataset.nome,
-                btn.dataset.serie
-              );
-            } else {
-              btnText.textContent = 'Aggiungi all\'Esportazione';
-              btnIcon.className = 'fas fa-file-export';
-              const existingItem = document.querySelector(`[data-series-id="${btn.dataset.id}"]`);
-              if (existingItem) {
-                existingItem.remove();
-                checkSelectedSeries();
-              }
-            }
-          });
-        });
-
-        // Also update cancel button to reset all button states
-        cancelExportBtn.addEventListener('click', () => {
-          selectedSeriesList.innerHTML = '';
-          // Reset all select buttons
-          selectBtns.forEach(btn => {
-            btn.classList.remove('selected');
-            const btnText = btn.querySelector('.btn-text');
-            const btnIcon = btn.querySelector('i');
-            btnText.textContent = 'Aggiungi all\'Esportazione';
-            btnIcon.className = 'fas fa-file-export';
-          });
-          checkSelectedSeries();
-        });
-
-        // Initial check
-        checkSelectedSeries();
-      });
-
-      // Handle export actions
-      exportSelectedPDF.addEventListener('click', async () => {
-        await exportSelectedSeries('/esporta_pdf_multiplo', 'analisi_multiple.pdf');
-      });
-
-      exportSelectedHTML.addEventListener('click', async () => {
-        await exportSelectedSeries('/esporta_html_multiplo', 'report_analisi.zip');
-      });
-
-      async function exportSelectedSeries(endpoint, filename) {
-        const selectedSeries = Array.from(selectedSeriesList.children).map(item => item.dataset.seriesId);
-        if (selectedSeries.length === 0) {
-          alert('Seleziona almeno una serie da esportare');
-          return;
-        }
-
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              series: selectedSeries
-            })
-          });
-
-          if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-          } else {
-            alert('Errore durante l\'esportazione');
-          }
-        } catch (error) {
-          console.error('Error:', error);
-          alert('Errore durante l\'esportazione');
+      function toggleNote(btn) {
+        var content = btn.nextElementSibling;
+        if (!content.style.height || content.style.height === '0px') {
+          content.classList.add('active');
+          content.style.height = content.scrollHeight + 'px';
+          btn.classList.add('active');
+        } else {
+          content.classList.remove('active');
+          content.style.height = '0px';
+          btn.classList.remove('active');
         }
       }
     </script>

@@ -39,7 +39,7 @@
               <div class="stats-container">
                 <div class="stats-summary">
                   <details>
-                    <summary>+ Statistiche</summary>
+                    <summary>Statistiche</summary>
                     <div class="section-content">
                       <div class="stats-grid-compact">
                         <div class="stat-metric">
@@ -99,74 +99,6 @@
                 </div>
               </div>
               
-              <!-- Visualizzazioni Statistiche -->
-              {% if risultato.statistiche.plots %}
-              <div class="visualizations-section">
-                <div class="stats-summary">
-                  <details>
-                    <summary>+ Visualizzazioni Statistiche</summary>
-                    <div class="section-content">
-                      <h4>Visualizzazioni Statistiche</h4>
-                      <div class="plots-grid">
-                        <!-- Histogram with KDE -->
-                        <div class="plot-card">
-                          <h5>Istogramma con KDE e Distribuzione Normale</h5>
-                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.histogram }}" alt="Histogram">
-                        </div>
-                        
-                        <!-- Box Plot -->
-                        <div class="plot-card">
-                          <h5>Box Plot</h5>
-                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.boxplot }}" alt="Box Plot">
-                        </div>
-                        
-                        <!-- Q-Q Plot -->
-                        <div class="plot-card">
-                          <h5>Q-Q Plot (Test di Normalità)</h5>
-                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot">
-                        </div>
-                      </div>
-
-                      <!-- Matrice di Correlazione -->
-                      {% if risultato.statistiche.plots.correlation %}
-                      <div class="correlation-matrix-section">
-                        <h5>Matrice di Correlazione</h5>
-                        <div class="correlation-container">
-                          <div class="correlation-plot">
-                            <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix">
-                          </div>
-
-                          {% if risultato.statistiche.legenda %}
-                          <div class="correlation-legend">
-                            <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
-                            <p class="legend-description">La matrice sopra utilizza lettere per rappresentare le serie di dati. Qui sotto trovi il significato di ogni lettera:</p>
-                            <table class="legend-table">
-                              <thead>
-                                <tr>
-                                  <th>Etichetta</th>
-                                  <th>Nome Serie</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                              {% for lettera, nome in risultato.statistiche.legenda.items() %}
-                                <tr>
-                                  <td><strong>{{ lettera }}</strong></td>
-                                  <td>{{ nome }}</td>
-                                </tr>
-                              {% endfor %}
-                              </tbody>
-                            </table>
-                          </div>
-                          {% endif %}
-                        </div>
-                      </div>
-                      {% endif %}
-                    </div>
-                  </details>
-                </div>
-              </div>
-              {% endif %}
-
               <!-- Correlazioni e Test Statistici -->
               {% if risultato.statistiche.correlazioni %}
               <div class="correlations-section">
@@ -193,13 +125,11 @@
                                 <div class="header-main">
                                   <h5>{{ altra_serie }}</h5>
                                   <div class="significance-badge {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}significant{% endif %}">
-                                    {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}
-                                      <i class="fas fa-star"></i> Significativo
-                                    {% else %}
-                                      <i class="fas fa-times"></i> Non significativo
-                                    {% endif %}
+                                    <i class="fas {% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}fa-check{% else %}fa-times{% endif %}"
+                                       data-tooltip="{% if risultato.statistiche.t_tests[altra_serie].p_value < 0.05 %}Significativo{% else %}Non significativo{% endif %}">
                                   </div>
                                 </div>
+                                  
                               </div>
 
                               <div class="base-metrics">
@@ -238,17 +168,99 @@
                 </div>
               </div>
               {% endif %}
-              
-              <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                  // Inizializza i tooltip
-                  tippy('[data-tooltip]', {
-                    placement: 'top',
-                    arrow: true,
-                    theme: 'stat-info'
-                  });
-                });
-              </script>
+
+              <!-- Visualizzazioni Statistiche -->
+              {% if risultato.statistiche.plots %}
+              <div class="visualizations-section">
+                <div class="stats-summary">
+                  <details>
+                    <summary>Visualizzazioni Statistiche</summary>
+                    <div class="section-content">
+                      <div class="plots-grid">
+                        <!-- Histogram with KDE -->
+                        <div class="plot-card">
+                          <h5>Istogramma con KDE e Distribuzione Normale</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.histogram }}" alt="Histogram">
+                        </div>
+                        
+                        <!-- Box Plot -->
+                        <div class="plot-card">
+                          <h5>Box Plot</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.boxplot }}" alt="Box Plot">
+                        </div>
+                        
+                        <!-- Q-Q Plot -->
+                        <div class="plot-card">
+                          <h5>Q-Q Plot (Test di Normalità)</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.qqplot }}" alt="Q-Q Plot">
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              {% endif %}
+
+              {% if risultato.statistiche.plots.correlation or risultato.statistiche.plots.t_test or risultato.statistiche.plots.effect_size %}
+              <div class="advanced-visualizations-section">
+                <div class="stats-summary">
+                  <details>
+                    <summary>Correlazioni e Test Avanzati</summary>
+                    <div class="section-content">
+                      <div class="advanced-plots-grid">
+                        {% if risultato.statistiche.plots.t_test %}
+                        <div class="plot-card">
+                          <h5>Distribuzione T-test</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.t_test }}" alt="T-test Distribution">
+                        </div>
+                        {% endif %}
+
+                        {% if risultato.statistiche.plots.effect_size %}
+                        <div class="plot-card">
+                          <h5>Effect Size</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.effect_size }}" alt="Effect Size Plot">
+                        </div>
+                        {% endif %}
+
+                        {% if risultato.statistiche.plots.correlation %}
+                        <div class="correlation-matrix-section">
+                          <h5>Matrice di Correlazione</h5>
+                          <div class="correlation-container">
+                            <div class="correlation-plot">
+                              <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix">
+                            </div>
+
+                            {% if risultato.statistiche.legenda %}
+                            <div class="correlation-legend">
+                              <h4>Legenda delle Serie nella Matrice di Correlazione</h4>
+                              <p class="legend-description">La matrice sopra utilizza lettere per rappresentare le serie di dati. Qui sotto trovi il significato di ogni lettera:</p>
+                              <table class="legend-table">
+                                <thead>
+                                  <tr>
+                                    <th>Etichetta</th>
+                                    <th>Nome Serie</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                {% for lettera, nome in risultato.statistiche.legenda.items() %}
+                                  <tr>
+                                    <td><strong>{{ lettera }}</strong></td>
+                                    <td>{{ nome }}</td>
+                                  </tr>
+                                {% endfor %}
+                                </tbody>
+                              </table>
+                            </div>
+                            {% endif %}
+                          </div>
+                        </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              {% endif %}
               
               {% else %}
               <div class="error-message">

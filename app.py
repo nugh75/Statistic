@@ -11,10 +11,12 @@ import tempfile
 import zipfile
 from scipy import stats
 import numpy as np
-from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file, abort
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file, abort, session
 from models import db, Calcolo
 from statistiche import StatisticheCalcolatore
 import logging
+from docx import Document
+from io import BytesIO
 
 # Configure logging
 logging.basicConfig(
@@ -31,14 +33,21 @@ app = Flask(__name__,
     static_url_path='/static',
     static_folder='static')
 
+# Get the absolute path for the database file
+basedir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(basedir, 'instance', 'calcoli.db')
+
 # Configuration
 app.config.update(
-    SECRET_KEY=os.environ.get('SECRET_KEY', 'sostituisci_con_una_chiave_segreta'),
-    SQLALCHEMY_DATABASE_URI='sqlite:///calcoli.db',
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'dev_key_for_session_management'),
+    SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     SEND_FILE_MAX_AGE_DEFAULT=0,  # Disable cache for development
     DEBUG=False,  # Default to False for security
-    TEMPLATES_AUTO_RELOAD=True
+    TEMPLATES_AUTO_RELOAD=True,
+    SESSION_COOKIE_SECURE=True,  # Only send cookie over HTTPS
+    SESSION_COOKIE_HTTPONLY=True,  # Prevent JavaScript access to session cookie
+    SESSION_COOKIE_SAMESITE='Lax'  # Protect against CSRF
 )
 
 # Add cache control headers for static files
@@ -62,10 +71,17 @@ def format_float(value):
     except (ValueError, TypeError):
         return str(value)
 
-# Initialize database
+# Initialize database with app context
 with app.app_context():
     db.init_app(app)
     db.create_all()
+
+# Setup session clearing using before_request instead of before_first_request
+@app.before_request
+def clear_session_if_needed():
+    if not hasattr(app, '_session_cleared'):
+        session.clear()
+        app._session_cleared = True
 
 def generate_plots(data, title, all_series=None):
     plots = {}
@@ -275,15 +291,9 @@ def index():
                     stats_json = json.dumps(stats_dict)
                     valori_json = json.dumps(dati)
                     
-                    # Crea il record nel database
-                    if 'media' in stats_dict:
-                        risultato_valore = float(stats_dict['media'])
-                    else:
-                        risultato_valore = 0.0  # Valore di fallback sicuro
-
+                    # Crea il record nel database - Rimosso il campo risultato non necessario
                     calcolo = Calcolo(
                         nome=nome,
-                        risultato=risultato_valore,
                         note=note,
                         serie_nome=colonna,
                         valori=valori_json,
@@ -298,8 +308,9 @@ def index():
                     })
                     
                 except Exception as e:
-                    print(f"[DEBUG] Errore nell'elaborazione della serie {colonna}: {str(e)}")
+                    logging.error(f"Errore nell'elaborazione della serie {colonna}: {str(e)}")
                     flash(f"Errore nell'elaborazione della serie {colonna}: {str(e)}")
+                    continue
             
             if not risultati:
                 flash("Nessun dato numerico valido trovato nel file.")
@@ -307,10 +318,11 @@ def index():
             
             try:
                 db.session.commit()
-                return render_template('risultato.html', risultati=risultati, nome=nome, note=note)
+                flash("Calcoli salvati con successo!", "success")
+                return redirect(url_for('registro'))
             except Exception as e:
                 db.session.rollback()
-                print(f"[DEBUG] Errore nel salvataggio nel database: {str(e)}")
+                logging.error(f"Errore nel salvataggio nel database: {str(e)}")
                 flash("Errore nel salvataggio dei risultati nel database.")
                 return redirect(request.url)
                 
@@ -677,6 +689,206 @@ def not_found_error(error):
 def internal_error(error):
     db.session.rollback()
     return render_template('500.html'), 500
+
+import os
+import zipfile
+from io import BytesIO
+from datetime import datetime
+
+@app.route('/preview-export')
+def preview_export():
+    selected_ids = session.get('selected_items', [])
+    if not selected_ids:
+        flash('Nessun elemento selezionato per l\'esportazione', 'warning')
+        return redirect(url_for('registro'))
+    
+    try:
+        # Convert all IDs to integers since they might be stored as strings in session
+        selected_ids = [int(id) for id in selected_ids]
+        calcoli = Calcolo.query.filter(Calcolo.id.in_(selected_ids)).all()
+        
+        if not calcoli:
+            flash('Nessun calcolo trovato per l\'esportazione', 'warning')
+            return redirect(url_for('registro'))
+            
+        return render_template('preview_export.html', calcoli=calcoli)
+        
+    except (ValueError, TypeError) as e:
+        flash('Errore nella selezione dei calcoli', 'error')
+        logging.error(f"Errore nella conversione degli ID: {str(e)}")
+        return redirect(url_for('registro'))
+    except Exception as e:
+        flash('Si è verificato un errore imprevisto', 'error')
+        logging.error(f"Errore imprevisto in preview_export: {str(e)}")
+        return redirect(url_for('registro'))
+
+@app.route('/download-export')
+def download_export():
+    if 'selected_items' not in session:
+        flash('Nessun elemento selezionato per l\'esportazione', 'warning')
+        return redirect(url_for('registro'))
+    
+    selected_ids = session.get('selected_items', [])
+    calcoli = Calcolo.query.filter(Calcolo.id.in_(selected_ids)).all()
+    
+    if not calcoli:
+        flash('Nessun calcolo trovato per l\'esportazione', 'warning')
+        return redirect(url_for('registro'))
+    
+    # Crea un documento Word
+    doc = Document()
+    doc.add_heading('Report Statistico', 0)
+    
+    for calcolo in calcoli:
+        # Aggiungi titolo del calcolo
+        doc.add_heading(f'Calcolo: {calcolo.nome}', level=1)
+        doc.add_paragraph(f'Data: {calcolo.data_creazione.strftime("%d/%m/%Y")}')
+        
+        # Aggiungi statistiche di base
+        statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+        doc.add_heading('Statistiche di Base', level=2)
+        if statistiche:
+            doc.add_paragraph(f'Media: {statistiche.get("media", "N/A"):.2f}')
+            doc.add_paragraph(f'Mediana: {statistiche.get("mediana", "N/A"):.2f}')
+            doc.add_paragraph(f'Deviazione Standard: {statistiche.get("deviazione_standard_popolazione", "N/A"):.2f}')
+        
+        # Aggiungi note se presenti
+        if calcolo.note:
+            doc.add_heading('Note', level=2)
+            doc.add_paragraph(calcolo.note)
+        
+        # Aggiungi un separatore tra i calcoli
+        doc.add_paragraph('_' * 50)
+    
+    # Salva il documento in memoria
+    memfile = BytesIO()
+    doc.save(memfile)
+    memfile.seek(0)
+    
+    return send_file(
+        memfile,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        as_attachment=True,
+        download_name='report_statistico.docx'
+    )
+
+@app.route('/toggle-selection/<int:calcolo_id>', methods=['POST'])
+def toggle_selection(calcolo_id):
+    if 'selected_items' not in session:
+        session['selected_items'] = []
+    
+    selected_items = session.get('selected_items', [])
+    
+    try:
+        if calcolo_id in selected_items:
+            selected_items.remove(calcolo_id)
+        else:
+            selected_items.append(calcolo_id)
+        
+        session['selected_items'] = selected_items
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'selected': calcolo_id in selected_items,
+            'count': len(selected_items)
+        })
+    except Exception as e:
+        logging.error(f"Errore nella gestione della selezione: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/export')
+def export():
+    items = request.args.get('items', '').split(',')
+    notes = request.args.get('notes', '')
+    export_name = request.args.get('filename', '')
+    
+    if not items or items[0] == '':
+        return "Nessun elemento selezionato", 400
+        
+    try:
+        # Crea un buffer per il file ZIP
+        memory_file = BytesIO()
+        with zipfile.ZipFile(memory_file, 'w') as zf:
+            # Crea una cartella per le immagini
+            images_folder = 'images/'
+            css_folder = 'css/'
+            
+            # Genera CSS
+            css_content = """
+            body { font-family: 'Roboto', sans-serif; line-height: 1.6; color: #2c3e50; background: #f5f7fa; }
+            .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+            .result-card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+            .stats-section { background: #f8f9fa; padding: 1rem; border-radius: 6px; border: 1px solid #e9ecef; }
+            .plot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+            .plot-card { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; text-align: center; }
+            .plot-card img { max-width: 100%; height: auto; border-radius: 4px; }
+            h1, h2, h3 { color: #2c3e50; }
+            .note-box { background: #fff8dc; padding: 1.2rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid #3498db; }
+            """
+            zf.writestr(f'{css_folder}style.css', css_content)
+
+            # Genera HTML per ogni calcolo
+            calcoli = []
+            plots_by_calcolo = {}
+            
+            for item_id in items:
+                try:
+                    calcolo = Calcolo.query.get(int(item_id))
+                    if calcolo:
+                        calcoli.append(calcolo)
+                        plots = {}
+                        statistiche = json.loads(calcolo.statistiche)
+                        
+                        # Salva i grafici
+                        if 'plots' in statistiche:
+                            for plot_type, plot_data in statistiche['plots'].items():
+                                if plot_data:  # Skip empty plots
+                                    img_data = base64.b64decode(plot_data)
+                                    img_filename = f'{images_folder}{calcolo.id}_{plot_type}.png'
+                                    zf.writestr(img_filename, img_data)
+                                    plots[plot_type] = img_filename
+                            
+                            plots_by_calcolo[calcolo.id] = plots
+                except:
+                    continue
+
+            if not calcoli:
+                return "Nessun calcolo valido trovato", 400
+
+            # Crea index.html con tutti i calcoli
+            current_datetime = datetime.now()
+            index_html = render_template('export_template.html',
+                                       calcoli=calcoli,
+                                       plots_by_calcolo=plots_by_calcolo,
+                                       notes=notes,
+                                       date=current_datetime)
+            zf.writestr('index.html', index_html)
+
+        # Prepara il file per il download
+        memory_file.seek(0)
+        
+        # Genera nome file con data e ora se non specificato
+        if not export_name:
+            export_name = f'export_{current_datetime.strftime("%Y%m%d_%H%M%S")}'
+        
+        # Assicurati che il nome finisca con .zip
+        if not export_name.lower().endswith('.zip'):
+            export_name += '.zip'
+            
+        return send_file(
+            memory_file,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=export_name
+        )
+    except Exception as e:
+        logging.error(f"Errore durante l'esportazione: {str(e)}")
+        return f"Errore durante l'esportazione: {str(e)}", 500
 
 if __name__ == '__main__':
     # Get configuration from environment variables

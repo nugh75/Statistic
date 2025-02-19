@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Report Statistico</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+        }
+
+        .fullscreen-overlay.active {
+            display: flex;
+        }
+
+        .fullscreen-image {
+            max-width: 90%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .plot-card img {
+            cursor: zoom-in;
+        }
+    </style>
+</head>
+<body>
+    <div id="fullscreenOverlay" class="fullscreen-overlay" onclick="hideFullscreen()">
+        <img id="fullscreenImage" class="fullscreen-image" src="" alt="">
+    </div>
+    <div class="container">
+        <h1>Report Statistico</h1>
+        {% if notes %}
+        <div class="note-box">
+            <h3>Note</h3>
+            <p>{{ notes }}</p>
+        </div>
+        {% endif %}
+
+        {% for calcolo in calcoli %}
+        <div class="result-card">
+            <h2>{{ calcolo.nome }}</h2>
+            <h3>Serie: {{ calcolo.serie_nome }}</h3>
+            
+            {% if calcolo.note %}
+            <div class="note-box">
+                <h3>Note</h3>
+                <p>{{ calcolo.note }}</p>
+            </div>
+            {% endif %}
+
+            {% set stats = calcolo.statistiche|from_json %}
+            {% if stats %}
+            <div class="stats-grid">
+                <div class="stats-section">
+                    <h3>Statistiche di Base</h3>
+                    <ul>
+                        <li>Media: {{ "%.4f"|format(stats.media|float) }}</li>
+                        <li>Mediana: {{ "%.4f"|format(stats.mediana|float) }}</li>
+                        <li>Moda: {{ stats.moda|join(', ') if stats.moda is iterable and stats.moda is not string else stats.moda }}</li>
+                        <li>Dev. Std. (pop): {{ "%.4f"|format(stats.deviazione_standard_popolazione|float) }}</li>
+                        <li>Dev. Std. (camp): {{ "%.4f"|format(stats.deviazione_standard_campione|float) }}</li>
+                        <li>Varianza (pop): {{ "%.4f"|format(stats.varianza_popolazione|float) }}</li>
+                        <li>Varianza (camp): {{ "%.4f"|format(stats.varianza_campione|float) }}</li>
+                        <li>Range: {{ "%.4f"|format(stats.range|float) }}</li>
+                        <li>N. osservazioni: {{ stats.count }}</li>
+                    </ul>
+                </div>
+
+                <div class="stats-section">
+                    <h3>Quartili e Range</h3>
+                    <ul>
+                        <li>Q1: {{ "%.4f"|format(stats.quartili.Q1|float) }}</li>
+                        <li>Q2 (Mediana): {{ "%.4f"|format(stats.quartili.Q2|float) }}</li>
+                        <li>Q3: {{ "%.4f"|format(stats.quartili.Q3|float) }}</li>
+                        <li>Minimo: {{ "%.4f"|format(stats.min_max.min|float) }}</li>
+                        <li>Massimo: {{ "%.4f"|format(stats.min_max.max|float) }}</li>
+                    </ul>
+                </div>
+
+                {% if stats.correlazioni %}
+                <div class="stats-section">
+                    <h3>Correlazioni</h3>
+                    <ul>
+                    {% for serie, corr in stats.correlazioni.items() %}
+                        <li>{{ serie }}: {{ "%.4f"|format(corr|float) }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if stats.t_tests %}
+                <div class="stats-section">
+                    <h3>T-Test</h3>
+                    <ul>
+                    {% for serie, test in stats.t_tests.items() %}
+                        <li>
+                            <strong>{{ serie }}</strong><br>
+                            {% if test is mapping %}
+                                statistica-t: {{ "%.4f"|format(test.t_stat|float) if test.t_stat is defined else "N/A" }}<br>
+                                p-value: {{ "%.4f"|format(test.p_value|float) if test.p_value is defined else "N/A" }}<br>
+                                {% if test.cohens_d is defined %}
+                                Cohen's d: {{ "%.4f"|format(test.cohens_d|float) }}<br>
+                                Effect size: {{ test.effect_size if test.effect_size is defined else "N/A" }}
+                                {% endif %}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="plot-grid">
+                {% if calcolo.id in plots_by_calcolo %}
+                    {% set plots = plots_by_calcolo[calcolo.id] %}
+                    {% if plots.histogram %}
+                    <div class="plot-card">
+                        <h4>Istogramma</h4>
+                        <img src="{{ plots.histogram }}" alt="Istogramma" onclick="showFullscreen(this)">
+                    </div>
+                    {% endif %}
+                    {% if plots.boxplot %}
+                    <div class="plot-card">
+                        <h4>Box Plot</h4>
+                        <img src="{{ plots.boxplot }}" alt="Box Plot" onclick="showFullscreen(this)">
+                    </div>
+                    {% endif %}
+                    {% if plots.qqplot %}
+                    <div class="plot-card">
+                        <h4>Q-Q Plot</h4>
+                        <img src="{{ plots.qqplot }}" alt="Q-Q Plot" onclick="showFullscreen(this)">
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        <footer>
+            <p>Report generato il {{ date.strftime('%d/%m/%Y %H:%M') }}</p>
+        </footer>
+    </div>
+    <script>
+        function showFullscreen(img) {
+            const overlay = document.getElementById('fullscreenOverlay');
+            const fullscreenImg = document.getElementById('fullscreenImage');
+            fullscreenImg.src = img.src;
+            overlay.classList.add('active');
+        }
+
+        function hideFullscreen() {
+            const overlay = document.getElementById('fullscreenOverlay');
+            overlay.classList.remove('active');
+        }
+
+        // Chiudi anche con il tasto ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>

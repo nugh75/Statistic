@@ -14,6 +14,12 @@
         <a href="{{ url_for('index') }}" class="nav-link">
           <i class="fas fa-calculator"></i> Nuovo Calcolo
         </a>
+        <button id="toggleSelection" class="btn btn-secondary">
+          <i class="fas fa-folder-plus"></i> Seleziona Multipla
+        </button>
+        <button id="exportSelected" class="btn btn-success" style="display: none;">
+          <i class="fas fa-file-export"></i> Esporta (<span id="selectedCount">0</span>)
+        </button>
       </nav>
 
       <h1>Registro delle Analisi</h1>
@@ -49,12 +55,29 @@
               </div>
             </summary>
             
+            {% if gruppo[0].note %}
+            <div class="gruppo-note">
+              <button class="note-toggle gruppo-note-toggle" onclick="toggleNote(this)">
+                <i class="fas fa-chevron-down"></i>
+                <span>Note del Gruppo</span>
+              </button>
+              <div class="note-content gruppo-note-content">
+                {{ gruppo[0].note }}
+              </div>
+            </div>
+            {% endif %}
+
             <div class="registro-grid">
               {% for calcolo in gruppo %}
               <div class="calcolo-card">
+                <div class="selection-checkbox" style="display: none;">
+                  <input type="checkbox" onchange="handleSelectionChange(this)" data-id="{{ calcolo.id }}" data-title="{{ calcolo.serie_nome }}">
+                </div>
                 <div class="calcolo-header">
-                  <h3>{{ calcolo.nome }}</h3>
-                  <div class="serie-info">Serie: {{ calcolo.serie_nome }}</div>
+                  <div class="serie-info">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Serie: {{ calcolo.serie_nome }}</h3>
+                  </div>
                 </div>
                 
                 <div class="calcolo-content">
@@ -74,16 +97,6 @@
                     </div>
                   </div>
                   {% endif %}
-
-                  {% if calcolo.note %}
-                  <button class="note-toggle" onclick="toggleNote(this)">
-                    <i class="fas fa-chevron-down"></i>
-                    <span>Note</span>
-                  </button>
-                  <div class="note-content">
-                    {{ calcolo.note }}
-                  </div>
-                  {% endif %}
                 </div>
 
                 <div class="card-actions">
@@ -91,12 +104,6 @@
                     <i class="fas fa-chart-bar"></i>
                   </a>
                   <div class="secondary-actions">
-                    <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Modifica">
-                      <i class="fas fa-edit"></i>
-                    </a>
-                    <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Esporta PDF">
-                      <i class="fas fa-file-pdf"></i>
-                    </a>
                     <button class="btn btn-danger btn-sm" onclick="eliminaCalcolo('{{ calcolo.id }}')" title="Elimina">
                       <i class="fas fa-trash"></i>
                     </button>
@@ -120,9 +127,84 @@
           </div>
         {% endif %}
       </div>
-    </div>
 
     <script>
+      let selectionMode = false;
+      const selectedItems = new Set();
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const toggleButton = document.getElementById('toggleSelection');
+        const exportButton = document.getElementById('exportSelected');
+        
+        toggleButton.addEventListener('click', toggleSelectionMode);
+        exportButton.addEventListener('click', exportSelection);
+      });
+
+      function toggleSelectionMode() {
+        selectionMode = !selectionMode;
+        const checkboxes = document.querySelectorAll('.selection-checkbox');
+        const exportButton = document.getElementById('exportSelected');
+        
+        checkboxes.forEach(cb => {
+          cb.style.display = selectionMode ? 'block' : 'none';
+        });
+        
+        const button = document.getElementById('toggleSelection');
+        if (selectionMode) {
+          button.innerHTML = '<i class="fas fa-times"></i> Annulla Selezione';
+          button.classList.add('active');
+          exportButton.style.display = 'inline-flex';
+        } else {
+          button.innerHTML = '<i class="fas fa-folder-plus"></i> Seleziona Multipla';
+          button.classList.remove('active');
+          exportButton.style.display = 'none';
+          selectedItems.clear();
+          document.querySelectorAll('.calcolo-card').forEach(card => {
+            card.classList.remove('selected');
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = false;
+          });
+          updateUI();
+        }
+      }
+
+      function handleSelectionChange(checkbox) {
+        const card = checkbox.closest('.calcolo-card');
+        const id = checkbox.dataset.id;
+        
+        if (checkbox.checked) {
+          selectedItems.add(id);
+          card.classList.add('selected');
+        } else {
+          selectedItems.delete(id);
+          card.classList.remove('selected');
+        }
+        
+        updateUI();
+      }
+
+      function updateUI() {
+        const count = selectedItems.size;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('exportSelected').style.display = 
+          count > 0 ? 'inline-flex' : 'none';
+      }
+
+      function esportaCalcolo(id) {
+        window.location.href = `/export?items=${id}`;
+      }
+
+      function exportSelection() {
+        if (selectedItems.size === 0) {
+          alert('Seleziona almeno un elemento da esportare');
+          return;
+        }
+        const exportName = prompt('Inserisci un nome per il file di esportazione:', 'export');
+        if (exportName === null) return; // L'utente ha annullato
+        
+        window.location.href = `/export?items=${Array.from(selectedItems).join(',')}&filename=${encodeURIComponent(exportName)}`;
+      }
+
       function eliminaCalcolo(id) {
         if (confirm('Sei sicuro di voler eliminare questo calcolo?')) {
           window.location.href = `/elimina/${id}`;

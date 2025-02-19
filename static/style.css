@@ -4,6 +4,7 @@
     padding: 0;
     box-sizing: border-box;
 }
+
 /* Custom styles for icon-only buttons in registro */
 .registro-grid .calcolo-card .card-actions a.btn {
     padding: 0.5rem !important;
@@ -15,15 +16,18 @@
     justify-content: center !important;
     overflow: hidden;
 }
- /* Separa la metadata dal titolo */
- .card-metadata {
-   margin-top: 0.5rem;
- }
+
+/* Separa la metadata dal titolo */
+.card-metadata {
+    margin-top: 0.5rem;
+}
+
 .calcolo-card {
     display: flex;
     flex-direction: column;
     position: relative;
 }
+
 .calcolo-card .card-metadata {
     order: 3;
     margin-top: auto;
@@ -31,11 +35,13 @@
     display: flex;
     justify-content: flex-end;
 }
+
 .calcolo-card .card-metadata .data {
     font-size: 0.75rem;
     text-align: right;
     color: #999;
 }
+
 .note-toggle {
     background: none;
     border: none;

@@ -19,75 +19,99 @@
       <h1>Registro delle Analisi</h1>
 
       <!-- Lista calcoli -->
-      <div class="registro-grid">
-        {% for calcolo in calcoli %}
-        <div class="calcolo-card">
-          <div class="calcolo-header">
-            <h3>{{ calcolo.nome }}</h3>
-            <div class="serie-info">Serie: {{ calcolo.serie_nome }}</div>
-          </div>
-          
-          <div class="calcolo-content">
-            {% if calcolo.statistiche and calcolo.statistiche.media is defined %}
-            <div class="stats-preview">
-              <div class="stat-item">
-                <span class="stat-label">Media:</span>
-                <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.media|float) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Dev. Std.:</span>
-                <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.deviazione_standard_popolazione|float) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">N. oss:</span>
-                <span class="stat-value">{{ calcolo.statistiche.count }}</span>
-              </div>
-            </div>
-            {% endif %}
+      {% set grouped_calcoli = {} %}
+      {% for calcolo in calcoli %}
+          {% if calcolo.nome not in grouped_calcoli %}
+              {% set _ = grouped_calcoli.update({calcolo.nome: []}) %}
+          {% endif %}
+          {% set _ = grouped_calcoli[calcolo.nome].append(calcolo) %}
+      {% endfor %}
 
-            {% if calcolo.note %}
-            <button class="note-toggle" onclick="toggleNote(this)">
-              <i class="fas fa-chevron-down"></i>
-              <span>Note</span>
-            </button>
-            <div class="note-content">
-              {{ calcolo.note }}
-            </div>
-            {% endif %}
-          </div>
+      <div class="registro-container">
+        {% if calcoli %}
+          {% for nome, gruppo in grouped_calcoli.items() %}
+          <details class="analisi-gruppo">
+            <summary class="gruppo-header">
+              <div class="gruppo-title">
+                <h2>{{ nome }}</h2>
+                <span class="gruppo-count">{{ gruppo|length }} analisi</span>
+              </div>
+              <div class="gruppo-date">
+                Ultima analisi: {{ gruppo[0].data_creazione.strftime('%d/%m/%Y %H:%M') }}
+              </div>
+            </summary>
+            
+            <div class="registro-grid">
+              {% for calcolo in gruppo %}
+              <div class="calcolo-card">
+                <div class="calcolo-header">
+                  <h3>{{ calcolo.nome }}</h3>
+                  <div class="serie-info">Serie: {{ calcolo.serie_nome }}</div>
+                </div>
+                
+                <div class="calcolo-content">
+                  {% if calcolo.statistiche and calcolo.statistiche.media is defined %}
+                  <div class="stats-preview">
+                    <div class="stat-item">
+                      <span class="stat-label">Media:</span>
+                      <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.media|float) }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Dev. Std.:</span>
+                      <span class="stat-value">{{ "%.4f"|format(calcolo.statistiche.deviazione_standard_popolazione|float) }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">N. oss:</span>
+                      <span class="stat-value">{{ calcolo.statistiche.count }}</span>
+                    </div>
+                  </div>
+                  {% endif %}
 
-          <div class="card-actions">
-            <a href="{{ url_for('visualizza_risultato', id=calcolo.id) }}" class="btn btn-primary" title="Visualizza Analisi">
-              <i class="fas fa-chart-bar"></i>
+                  {% if calcolo.note %}
+                  <button class="note-toggle" onclick="toggleNote(this)">
+                    <i class="fas fa-chevron-down"></i>
+                    <span>Note</span>
+                  </button>
+                  <div class="note-content">
+                    {{ calcolo.note }}
+                  </div>
+                  {% endif %}
+                </div>
+
+                <div class="card-actions">
+                  <a href="{{ url_for('visualizza_risultato', id=calcolo.id) }}" class="btn btn-primary" title="Visualizza Analisi">
+                    <i class="fas fa-chart-bar"></i>
+                  </a>
+                  <div class="secondary-actions">
+                    <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Modifica">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Esporta PDF">
+                      <i class="fas fa-file-pdf"></i>
+                    </a>
+                    <button class="btn btn-danger btn-sm" onclick="eliminaCalcolo('{{ calcolo.id }}')" title="Elimina">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="card-metadata">
+                  <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </details>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <i class="fas fa-calculator"></i>
+            <p>Nessun calcolo presente</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+              <i class="fas fa-plus"></i> Nuovo Calcolo
             </a>
-            <div class="secondary-actions">
-              <a href="{{ url_for('modifica_calcolo', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Modifica">
-                <i class="fas fa-edit"></i>
-              </a>
-              <a href="{{ url_for('esporta_pdf', id=calcolo.id) }}" class="btn btn-secondary btn-sm" title="Esporta PDF">
-                <i class="fas fa-file-pdf"></i>
-              </a>
-              <button class="btn btn-danger btn-sm" onclick="eliminaCalcolo('{{ calcolo.id }}')" title="Elimina">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
           </div>
-          <div class="card-metadata">
-            <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
-          </div>
-        </div>
-        {% endfor %}
+        {% endif %}
       </div>
-
-      {% if not calcoli %}
-      <div class="empty-state">
-        <i class="fas fa-calculator"></i>
-        <p>Nessun calcolo presente</p>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Nuovo Calcolo
-        </a>
-      </div>
-      {% endif %}
     </div>
 
     <script>

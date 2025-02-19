@@ -2662,3 +2662,39 @@ details[open] .section-content {
   margin-top: 16px;
   justify-content: flex-end;
 }
+
+.note-content {
+  overflow: hidden;
+  height: 0;
+  transition: height 0.3s ease-out;
+  padding: 0 15px;
+  margin: 10px 0;
+}
+
+.note-content.active {
+  padding: 15px;
+  border-top: 1px solid #e0e0e0;
+  background-color: transparent;
+}
+
+.note-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  padding: 8px;
+  width: 100%;
+  text-align: left;
+  margin-top: 10px;
+}
+
+.note-toggle i {
+  transition: transform 0.3s ease;
+}
+
+.note-toggle.active i {
+  transform: rotate(180deg);
+}

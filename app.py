@@ -646,61 +646,8 @@ def elimina_multipli():
 
 @app.route('/risultato/<int:id>')
 def visualizza_risultato(id):
-    calcolo = Calcolo.query.get_or_404(id)
-    
-    try:
-        # Load values and existing statistics
-        valori = json.loads(calcolo.valori) if calcolo.valori else []
-        statistiche = json.loads(calcolo.statistiche) if calcolo.statistiche else {}
-        
-        # If we have values but no statistics, recalculate them
-        if valori and not statistiche:
-            stats = StatisticheCalcolatore.calcola_tutte_statistiche(valori)
-            plots = generate_plots(valori, calcolo.serie_nome)
-            
-            statistiche = {
-                'count': len(valori),
-                'media': float(stats['media']),
-                'mediana': float(stats['mediana']),
-                'moda': stats['moda'][0] if isinstance(stats['moda'], (list, tuple)) else stats['moda'],
-                'deviazione_standard_popolazione': float(stats['deviazione_standard_popolazione']),
-                'deviazione_standard_campione': float(stats['deviazione_standard_campione']),
-                'varianza_popolazione': float(stats['varianza_popolazione']),
-                'varianza_campione': float(stats['varianza_campione']),
-                'range': float(stats['range']),
-                'quartili': {
-                    'Q1': float(stats['quartili']['Q1']),
-                    'Q2': float(stats['quartili']['Q2']),
-                    'Q3': float(stats['quartili']['Q3'])
-                },
-                'min_max': {
-                    'min': float(stats['min_max']['min']),
-                    'max': float(stats['min_max']['max'])
-                },
-                'plots': plots
-            }
-            
-            # Save the recalculated statistics
-            calcolo.statistiche = json.dumps(statistiche)
-            db.session.commit()
-        
-        return render_template('risultato.html',
-                           risultato={
-                               'serie': calcolo.serie_nome,
-                               'statistiche': statistiche
-                           },
-                           nome=calcolo.nome,
-                           note=calcolo.note)
-                            
-    except Exception as e:
-        logging.error(f"Errore nel calcolo delle statistiche: {str(e)}")
-        return render_template('risultato.html',
-                           risultato={
-                               'serie': calcolo.serie_nome,
-                               'statistiche': {}
-                           },
-                           nome=calcolo.nome,
-                           note=calcolo.note)
+    # Reindirizza al registro con l'ID del calcolo come parametro
+    return redirect(url_for('registro', selected_id=id))
 
 @app.route('/modifica-gruppo/<nome_attuale>/<nuovo_nome>')
 def modifica_gruppo(nome_attuale, nuovo_nome):
@@ -934,6 +881,22 @@ def export():
     except Exception as e:
         logging.error(f"Errore durante l'esportazione: {str(e)}")
         return f"Errore durante l'esportazione: {str(e)}", 500
+
+@app.route('/result/<int:id>')
+def result(id):
+    calcolo = db.session.get(Calcolo, id)
+    if calcolo is None:
+        return abort(404)
+    
+    risultati = [{
+        'serie': calcolo.serie_nome,
+        'statistiche': json.loads(calcolo.statistiche) if calcolo.statistiche else {}
+    }]
+    
+    return render_template('risultato.html', 
+                         risultati=risultati,
+                         nome=calcolo.nome,
+                         note=calcolo.note)
 
 if __name__ == '__main__':
     # Get configuration from environment variables

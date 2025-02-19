@@ -7,8 +7,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
   </head>
   <body>
+    <!-- Fullscreen Overlay -->
+    <div id="fullscreenOverlay" class="fullscreen-overlay">
+      <div class="close-fullscreen">&times;</div>
+      <img id="fullscreenImage" class="fullscreen-image" src="" alt="Fullscreen view">
+    </div>
+
     <div class="container">
       <nav class="top-nav">
         <a href="{{ url_for('index') }}" class="nav-link">
@@ -109,7 +117,61 @@
                       <span class="stat-value">{{ calcolo.statistiche.count }}</span>
                     </div>
                   </div>
+                  {% if calcolo.statistiche.plots %}
+                  <div class="visualizations-section" style="display: none;">
+                    <div class="stats-summary">
+                      <div class="plots-grid">
+                        {% if calcolo.statistiche.plots.histogram %}
+                        <div class="plot-card">
+                          <h5>Istogramma con KDE e Distribuzione Normale</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.histogram }}" 
+                               alt="Histogram" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
+                        
+                        {% if calcolo.statistiche.plots.boxplot %}
+                        <div class="plot-card">
+                          <h5>Box Plot</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.boxplot }}" 
+                               alt="Box Plot" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
+                        
+                        {% if calcolo.statistiche.plots.qqplot %}
+                        <div class="plot-card">
+                          <h5>Q-Q Plot (Test di Normalità)</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.qqplot }}" 
+                               alt="Q-Q Plot" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
 
+                        {% if calcolo.statistiche.plots.correlation %}
+                        <div class="plot-card">
+                          <h5>Matrice di Correlazione</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.correlation }}" 
+                               alt="Correlation Matrix" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
+
+                        {% if calcolo.statistiche.plots.ttest %}
+                        <div class="plot-card">
+                          <h5>Matrice dei p-value (T-test)</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.ttest }}" 
+                               alt="T-test Matrix" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
+
+                        {% if calcolo.statistiche.plots.effect_size %}
+                        <div class="plot-card">
+                          <h5>Effect Size (Cohen's d)</h5>
+                          <img src="data:image/png;base64,{{ calcolo.statistiche.plots.effect_size }}" 
+                               alt="Effect Size Plot" class="zoomable-image" onclick="showFullscreen(this)">
+                        </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                  {% endif %}
                   {% if calcolo.statistiche.correlazioni or calcolo.statistiche.t_tests %}
                   <div class="statistical-metrics">
                     <button class="note-toggle" onclick="toggleMetrics(this)">
@@ -159,9 +221,9 @@
                 </div>
 
                 <div class="card-actions">
-                  <a href="{{ url_for('visualizza_risultato', id=calcolo.id) }}" class="btn btn-primary" title="Visualizza Analisi">
+                  <button class="btn btn-primary" onclick="toggleDetails(this)" title="Mostra/Nascondi Dettagli">
                     <i class="fas fa-chart-bar"></i>
-                  </a>
+                  </button>
                   <div class="secondary-actions">
                     <button class="btn btn-danger btn-sm" onclick="eliminaCalcolo('{{ calcolo.id }}')" title="Elimina">
                       <i class="fas fa-trash"></i>
@@ -393,6 +455,53 @@
           content.style.height = '0px';
           btn.classList.remove('active');
         }
+      }
+
+      function toggleDetails(btn) {
+        const card = btn.closest('.calcolo-card');
+        const input = card.querySelector('input[type="checkbox"]');
+        const calcoloId = input.dataset.id;
+        window.location.href = `/result/${calcoloId}`;
+      }
+
+      // Funzioni per la visualizzazione fullscreen
+      function showFullscreen(img) {
+        const overlay = document.getElementById('fullscreenOverlay');
+        const fullscreenImage = document.getElementById('fullscreenImage');
+        
+        fullscreenImage.src = img.src;
+        overlay.style.display = 'flex';
+        
+        // Previeni lo scrolling della pagina
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const overlay = document.getElementById('fullscreenOverlay');
+        const closeBtn = document.querySelector('.close-fullscreen');
+        
+        // Chiudi con il pulsante X
+        closeBtn.addEventListener('click', closeFullscreen);
+        
+        // Chiudi cliccando fuori dall'immagine
+        overlay.addEventListener('click', function(e) {
+          if (e.target === overlay) {
+            closeFullscreen();
+          }
+        });
+        
+        // Chiudi con il tasto ESC
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && overlay.style.display === 'flex') {
+            closeFullscreen();
+          }
+        });
+      });
+
+      function closeFullscreen() {
+        const overlay = document.getElementById('fullscreenOverlay');
+        overlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
       }
 
       function modificaTitoloGruppo(btn, nomeAttuale) {

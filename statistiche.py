@@ -487,7 +487,7 @@ class StatisticheCalcolatore:
         plt.xticks(rotation=0)
         plt.yticks(rotation=0)
         
-        plt.title('Matrice di Correlazione')
+        plt.title('Matrice di correlazione')
         
         # Aggiusta il layout per evitare sovrapposizioni
         plt.tight_layout()
@@ -888,7 +888,7 @@ class StatisticheCalcolatore:
                             
                             {% if stats.plots.correlation %}
                             <div class="plot-card">
-                                <h4>Matrice di Correlazione</h4>
+                                <h4>Matrice di correlazione</h4>
                                 <img src="{{ stats.plots.correlation }}" alt="Correlation Matrix">
                             </div>
                             {% endif %}

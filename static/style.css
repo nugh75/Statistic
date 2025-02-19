@@ -351,15 +351,6 @@ input[type="file"]:hover {
     box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
 }
 
-.btn-delete {
-    background-color: #e74c3c;
-}
-
-.btn-delete:hover {
-    background-color: #c0392b;
-    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-}
-
 /* Responsive design */
 @media (max-width: 768px) {
     .stats-grid {
@@ -706,6 +697,16 @@ details[open] .section-content {
 /* Buttons in registro */
 .btn-edit {
     background-color: #f39c12;
+}
+
+.actions.center {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+/* Table styles */
+.table-container {
+    overflow-x: auto;
 }
 
 .btn-delete {
@@ -3997,5 +3998,3 @@ details[open] .section-content {
 .plot-card.full-width {
     margin-bottom: 2rem;
 }
-
-/* ...existing code... */

@@ -131,6 +131,85 @@
                 </div>
               </div>
               {% endif %}
+
+              {% if risultato.statistiche.correlazioni or risultato.statistiche.t_tests %}
+              <div class="statistical-analysis-section">
+                <div class="stats-summary">
+                  <details>
+                    <summary>Analisi Statistiche Avanzate</summary>
+                    <div class="section-content">
+                      {% if risultato.statistiche.correlazioni %}
+                      <div class="correlation-section">
+                        <h4>Correlazioni e Test Statistici</h4>
+                        <div class="stats-grid">
+                          <div class="test-card">
+                            {% if risultato.statistiche.plots.correlation %}
+                            <div class="plot-card full-width">
+                              <h5>Matrice di Correlazione</h5>
+                              <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix" class="zoomable">
+                              {% if risultato.statistiche.legenda %}
+                              <div class="correlation-legend">
+                                <h6>Legenda</h6>
+                                <div class="legend-table">
+                                  {% for etichetta, nome in risultato.statistiche.legenda.items() %}
+                                  <div class="legend-item">
+                                    <span class="legend-key">{{ etichetta }}</span>
+                                    <span class="legend-value">{{ nome }}</span>
+                                  </div>
+                                  {% endfor %}
+                                </div>
+                              </div>
+                              {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <div class="correlation-metrics">
+                              {% for altra_serie, correlazione in risultato.statistiche.correlazioni.items() %}
+                              <div class="metric-pill correlation {% if correlazione|float > 0.7 %}high-positive{% elif correlazione|float < -0.7 %}high-negative{% endif %}">
+                                <i class="fas fa-link"></i>
+                                <span>{{ altra_serie }}</span>
+                                <span>r = {{ "%.4f"|format(correlazione|float) }}</span>
+                              </div>
+                              {% endfor %}
+                            </div>
+                          </div>
+
+                          {% if risultato.statistiche.t_tests %}
+                          <div class="test-card">
+                            <h5>Test di Significatività</h5>
+                            <div class="test-metrics">
+                              {% for altra_serie, test in risultato.statistiche.t_tests.items() %}
+                              <div class="metric-group">
+                                <div class="metric-pill t-test {% if test.p_value < 0.05 %}significant{% endif %}">
+                                  <i class="fas fa-calculator"></i>
+                                  <span>{{ altra_serie }}</span>
+                                  <span>t = {{ "%.4f"|format(test.t_statistic|float) }}</span>
+                                  <small class="{% if test.p_value < 0.05 %}significant{% endif %}">
+                                    p = {{ "%.4f"|format(test.p_value|float) }}
+                                  </small>
+                                </div>
+
+                                {% if test.cohens_d %}
+                                <div class="metric-pill effect-size {% if test.cohens_d|abs > 0.8 %}large{% elif test.cohens_d|abs > 0.5 %}medium{% elif test.cohens_d|abs > 0.2 %}small{% endif %}">
+                                  <i class="fas fa-ruler-horizontal"></i>
+                                  <span>Effect Size</span>
+                                  <span>d = {{ "%.4f"|format(test.cohens_d|float) }}</span>
+                                  <small>{{ test.effect_size }}</small>
+                                </div>
+                                {% endif %}
+                              </div>
+                              {% endfor %}
+                            </div>
+                          </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </details>
+                </div>
+              </div>
+              {% endif %}
             </div>
           </div>
         {% else %}

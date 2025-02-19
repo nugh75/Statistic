@@ -3011,3 +3011,91 @@ details[open] .section-content {
         gap: 0.5rem;
     }
 }
+
+/* Sezione Analisi Statistiche */
+.statistical-analysis-section {
+  margin-top: 2rem;
+}
+
+.test-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1.5rem;
+}
+
+.correlation-section h4 {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #3498db;
+}
+
+.plot-card.full-width {
+  max-width: none;
+  margin-bottom: 2rem;
+}
+
+.correlation-legend {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.correlation-legend h6 {
+  color: #2c3e50;
+  margin-bottom: 0.8rem;
+}
+
+.legend-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: white;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.legend-key {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.legend-value {
+  color: #64748b;
+}
+
+.correlation-metrics,
+.test-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.metric-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .correlation-metrics,
+  .test-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .legend-table {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}

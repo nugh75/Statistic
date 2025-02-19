@@ -229,14 +229,53 @@ def index():
             
             # Calcola la matrice di correlazione e t-test una sola volta
             matrice_correlazione_img = None
+            matrice_ttest_img = None
+            effect_size_img = None
             correlazioni = None
             t_tests = None
             legenda = {}
             if len(all_series) > 1:
+                # Genera la matrice di correlazione
                 matrice_correlazione_img, legenda = generate_correlation_matrix(all_series)
                 correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
+                
+                # Calcola i t-test e genera i relativi grafici
                 t_tests = StatisticheCalcolatore.calcola_ttest_coppie(all_series)
-            
+                
+                # Calcola le dimensioni ottimali per la heatmap t-test
+                n_vars = len(all_series)
+                figsize_ttest = (min(12, max(8, n_vars * 1.2)), min(8, max(6, n_vars * 1.2)))
+                
+                # Genera heatmap t-test
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    ttest_legenda = StatisticheCalcolatore.crea_heatmap_ttest(
+                        t_tests,
+                        tmp.name,
+                        use_etichette_brevi=True,
+                        figsize=figsize_ttest
+                    )
+                    with open(tmp.name, 'rb') as f:
+                        matrice_ttest_img = base64.b64encode(f.read()).decode('utf-8')
+                    os.unlink(tmp.name)
+                    
+                    # Aggiorna la legenda con le etichette dei t-test
+                    legenda.update(ttest_legenda)
+                
+                # Genera grafico effect size
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    effect_legenda = StatisticheCalcolatore.crea_effect_size_plot(
+                        t_tests,
+                        tmp.name,
+                        use_etichette_brevi=True,
+                        figsize=(12, 6)
+                    )
+                    with open(tmp.name, 'rb') as f:
+                        effect_size_img = base64.b64encode(f.read()).decode('utf-8')
+                    os.unlink(tmp.name)
+                    
+                    # Aggiorna la legenda con le etichette dell'effect size
+                    legenda.update(effect_legenda)
+
             # Ora processiamo ogni serie per le statistiche
             for colonna, dati in all_series.items():
                 try:
@@ -286,6 +325,12 @@ def index():
                             for serie, test_result in t_tests[colonna].items():
                                 if 'cohens_d' in test_result:
                                     test_result['effect_size'] = StatisticheCalcolatore.interpreta_cohens_d(test_result['cohens_d'])
+                    
+                    # Aggiungi i nuovi grafici alle statistiche
+                    if matrice_ttest_img:
+                        stats_dict['plots']['ttest'] = matrice_ttest_img
+                    if effect_size_img:
+                        stats_dict['plots']['effect_size'] = effect_size_img
                     
                     # Serializza i dati
                     stats_json = json.dumps(stats_dict)

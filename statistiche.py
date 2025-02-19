@@ -6,6 +6,13 @@ from io import BytesIO
 import PIL.Image
 from reportlab.platypus import Image
 from reportlab.lib.units import inch
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+import string
+import tempfile
 
 class StatisticheCalcolatore:
     @staticmethod
@@ -486,6 +493,136 @@ class StatisticheCalcolatore:
         plt.tight_layout()
         
         # Salva la figura
+        plt.savefig(percorso_file, bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        return legenda
+
+    @staticmethod
+    def crea_heatmap_ttest(t_tests: Dict[str, Dict[str, Dict[str, float]]], percorso_file: str, 
+                          use_etichette_brevi: bool = True, figsize: Tuple[int, int] = (12, 8)) -> Dict[str, str]:
+        """
+        Crea una heatmap dei p-value dei t-test e la salva come immagine.
+        
+        Args:
+            t_tests: Dizionario dei risultati t-test
+            percorso_file: Percorso dove salvare l'immagine
+            use_etichette_brevi: Se True usa etichette alfabetiche
+            figsize: Dimensioni della figura
+        
+        Returns:
+            Dict[str, str]: Mappatura tra etichette brevi e originali
+        """
+        # Estrai i p-value dal dizionario dei t-test
+        df_data = {}
+        for serie1, tests in t_tests.items():
+            df_data[serie1] = {}
+            for serie2, results in tests.items():
+                df_data[serie1][serie2] = results['p_value']
+        
+        df_pvalues = pd.DataFrame(df_data)
+        
+        # Crea mappatura etichette se richiesto
+        legenda = {}
+        if use_etichette_brevi:
+            lettere = list(string.ascii_uppercase)
+            etichette_brevi = {col: lettere[i] for i, col in enumerate(df_pvalues.columns)}
+            legenda = {v: k for k, v in etichette_brevi.items()}
+            df_pvalues = df_pvalues.rename(columns=etichette_brevi)
+            df_pvalues.index = df_pvalues.columns
+        
+        plt.figure(figsize=figsize)
+        
+        # Crea la heatmap con una scala di colori diversa per i p-value
+        mask = np.triu(np.ones_like(df_pvalues, dtype=bool), k=0)
+        heatmap = sns.heatmap(df_pvalues,
+                             mask=mask,
+                             annot=True,
+                             cmap='RdYlBu_r',
+                             vmin=0,
+                             vmax=0.1,
+                             fmt='.3f',
+                             annot_kws={'size': 10},
+                             square=True)
+        
+        plt.title('Matrice dei p-value (T-test)')
+        plt.tight_layout()
+        plt.savefig(percorso_file, bbox_inches='tight', dpi=300)
+        plt.close()
+        
+        return legenda
+
+    @staticmethod
+    def crea_effect_size_plot(t_tests: Dict[str, Dict[str, Dict[str, float]]], percorso_file: str,
+                             use_etichette_brevi: bool = True, figsize: Tuple[int, int] = (12, 6)) -> Dict[str, str]:
+        """
+        Crea un grafico a barre degli effect size (Cohen's d) con indicazione della significatività.
+        
+        Args:
+            t_tests: Dizionario dei risultati t-test
+            percorso_file: Percorso dove salvare l'immagine
+            use_etichette_brevi: Se True usa etichette alfabetiche
+            figsize: Dimensioni della figura
+        
+        Returns:
+            Dict[str, str]: Mappatura tra etichette brevi e originali
+        """
+        # Estrai effect size e p-value
+        effect_sizes = []
+        labels = []
+        p_values = []
+        
+        for serie1, tests in t_tests.items():
+            for serie2, results in tests.items():
+                if serie1 < serie2:  # Evita duplicati
+                    effect_sizes.append(results['cohens_d'])
+                    labels.append(f"{serie1} vs {serie2}")
+                    p_values.append(results['p_value'])
+        
+        # Crea mappatura etichette se richiesto
+        legenda = {}
+        if use_etichette_brevi:
+            lettere = list(string.ascii_uppercase)
+            pairs = [label.split(" vs ") for label in labels]
+            unique_series = list(set([s for pair in pairs for s in pair]))
+            etichette_brevi = {serie: lettere[i] for i, serie in enumerate(unique_series)}
+            legenda = {v: k for k, v in etichette_brevi.items()}
+            
+            # Aggiorna le etichette con le versioni brevi
+            labels = [f"{etichette_brevi[pair[0]]} vs {etichette_brevi[pair[1]]}" for pair in pairs]
+        
+        plt.figure(figsize=figsize)
+        bars = plt.bar(range(len(effect_sizes)), effect_sizes)
+        
+        # Colora le barre in base alla significatività e alla dimensione dell'effetto
+        for i, (bar, d, p) in enumerate(zip(bars, effect_sizes, p_values)):
+            if p < 0.05:  # Statisticamente significativo
+                if abs(d) > 0.8:
+                    bar.set_color('#e74c3c')  # Rosso per effetto grande
+                elif abs(d) > 0.5:
+                    bar.set_color('#f39c12')  # Arancione per effetto medio
+                else:
+                    bar.set_color('#2ecc71')  # Verde per effetto piccolo
+            else:
+                bar.set_color('#95a5a6')  # Grigio per non significativo
+        
+        # Aggiungi etichette e dettagli
+        plt.xticks(range(len(labels)), labels, rotation=45, ha='right')
+        plt.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+        plt.grid(True, axis='y', linestyle='--', alpha=0.3)
+        
+        # Aggiungi linee di riferimento per le soglie dell'effect size
+        plt.axhline(y=0.8, color='#e74c3c', linestyle='--', alpha=0.3)
+        plt.axhline(y=-0.8, color='#e74c3c', linestyle='--', alpha=0.3)
+        plt.axhline(y=0.5, color='#f39c12', linestyle='--', alpha=0.3)
+        plt.axhline(y=-0.5, color='#f39c12', linestyle='--', alpha=0.3)
+        plt.axhline(y=0.2, color='#2ecc71', linestyle='--', alpha=0.3)
+        plt.axhline(y=-0.2, color='#2ecc71', linestyle='--', alpha=0.3)
+        
+        plt.ylabel("Cohen's d")
+        plt.title('Effect Size (Cohen\'s d) per Coppie di Serie')
+        plt.tight_layout()
+        
         plt.savefig(percorso_file, bbox_inches='tight', dpi=300)
         plt.close()
         

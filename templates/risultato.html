@@ -210,6 +210,65 @@
                 </div>
               </div>
               {% endif %}
+              
+              {% if risultato.statistiche.plots.correlation or risultato.statistiche.plots.ttest or risultato.statistiche.plots.effect_size %}
+              <div class="advanced-visualizations-section">
+                <div class="stats-summary">
+                  <details>
+                    <summary>Analisi Statistica Avanzata</summary>
+                    <div class="section-content">
+                      <div class="analysis-guide">
+                        <div class="guide-item">
+                          <i class="fas fa-info-circle"></i>
+                          <span>P-value < 0.05 indica una differenza statisticamente significativa</span>
+                        </div>
+                        <div class="guide-item">
+                          <i class="fas fa-ruler-horizontal"></i>
+                          <span>Effect size (d): <0.2 trascurabile, 0.2-0.5 piccolo, 0.5-0.8 medio, >0.8 grande</span>
+                        </div>
+                      </div>
+
+                      <div class="advanced-plots-grid">
+                        {% if risultato.statistiche.plots.correlation %}
+                        <div class="plot-card full-width">
+                          <h5>Matrice di Correlazione</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.correlation }}" alt="Correlation Matrix" class="zoomable">
+                        </div>
+                        {% endif %}
+
+                        {% if risultato.statistiche.plots.ttest %}
+                        <div class="plot-card full-width">
+                          <h5>Matrice dei p-value (T-test)</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.ttest }}" alt="T-test Matrix" class="zoomable">
+                        </div>
+                        {% endif %}
+
+                        {% if risultato.statistiche.plots.effect_size %}
+                        <div class="plot-card full-width">
+                          <h5>Effect Size (Cohen's d)</h5>
+                          <img src="data:image/png;base64,{{ risultato.statistiche.plots.effect_size }}" alt="Effect Size Plot" class="zoomable">
+                        </div>
+                        {% endif %}
+
+                        {% if risultato.statistiche.legenda %}
+                        <div class="correlation-legend">
+                          <h6>Legenda delle Serie</h6>
+                          <div class="legend-table">
+                            {% for etichetta, nome in risultato.statistiche.legenda.items() %}
+                            <div class="legend-item">
+                              <span class="legend-key">{{ etichetta }}</span>
+                              <span class="legend-value">{{ nome }}</span>
+                            </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              {% endif %}
             </div>
           </div>
         {% else %}

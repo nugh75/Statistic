@@ -2767,3 +2767,51 @@ details[open] .section-content {
     margin-top: 0.5rem;
   }
 }
+
+.gruppo-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.gruppo-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 1rem;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #2d3748;
+}
+
+.btn-icon.btn-danger:hover {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+@media (max-width: 768px) {
+  .gruppo-title {
+    flex-wrap: wrap;
+  }
+  
+  .gruppo-actions {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+}

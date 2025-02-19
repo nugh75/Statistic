@@ -35,6 +35,14 @@
               <div class="gruppo-title">
                 <h2>{{ nome }}</h2>
                 <span class="gruppo-count">{{ gruppo|length }} analisi</span>
+                <div class="gruppo-actions">
+                  <button class="btn-icon" onclick="modificaTitoloGruppo(this, '{{ nome }}')" title="Modifica titolo">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn-icon btn-danger" onclick="eliminaGruppo('{{ nome }}')" title="Elimina gruppo">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
               </div>
               <div class="gruppo-date">
                 Ultima analisi: {{ gruppo[0].data_creazione.strftime('%d/%m/%Y %H:%M') }}
@@ -131,6 +139,19 @@
           content.classList.remove('active');
           content.style.height = '0px';
           btn.classList.remove('active');
+        }
+      }
+
+      function modificaTitoloGruppo(btn, nomeAttuale) {
+        const nuovoTitolo = prompt("Inserisci il nuovo titolo per il gruppo:", nomeAttuale);
+        if (nuovoTitolo && nuovoTitolo !== nomeAttuale) {
+          window.location.href = `/modifica-gruppo/${encodeURIComponent(nomeAttuale)}/${encodeURIComponent(nuovoTitolo)}`;
+        }
+      }
+
+      function eliminaGruppo(nome) {
+        if (confirm('Sei sicuro di voler eliminare tutte le analisi del gruppo "' + nome + '"?')) {
+          window.location.href = `/elimina-gruppo/${encodeURIComponent(nome)}`;
         }
       }
     </script>

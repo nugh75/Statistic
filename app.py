@@ -645,6 +645,30 @@ def visualizza_risultato(id):
                            nome=calcolo.nome,
                            note=calcolo.note)
 
+@app.route('/modifica-gruppo/<nome_attuale>/<nuovo_nome>')
+def modifica_gruppo(nome_attuale, nuovo_nome):
+    try:
+        # Aggiorna il nome del gruppo per tutte le analisi corrispondenti
+        Calcolo.query.filter_by(nome=nome_attuale).update({'nome': nuovo_nome})
+        db.session.commit()
+        flash('Gruppo rinominato con successo', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Errore durante la modifica del gruppo: {str(e)}', 'error')
+    return redirect(url_for('registro'))
+
+@app.route('/elimina-gruppo/<nome>')
+def elimina_gruppo(nome):
+    try:
+        # Elimina tutte le analisi del gruppo
+        Calcolo.query.filter_by(nome=nome).delete()
+        db.session.commit()
+        flash('Gruppo eliminato con successo', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Errore durante l\'eliminazione del gruppo: {str(e)}', 'error')
+    return redirect(url_for('registro'))
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404

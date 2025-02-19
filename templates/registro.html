@@ -35,6 +35,19 @@
 
       <div class="registro-container">
         {% if calcoli %}
+          <!-- Sezione per Correlazioni e Test Statistici quando ci sono selezioni multiple -->
+          <div id="statistical-analysis-section" style="display: none;" class="statistical-tests-section">
+            <div class="result-card correlations-card">
+              <h2>Analisi delle Correlazioni</h2>
+              <div id="correlations-content"></div>
+            </div>
+
+            <div class="result-card tests-card">
+              <h2>Test Statistici</h2>
+              <div id="tests-content"></div>
+            </div>
+          </div>
+
           {% for nome, gruppo in grouped_calcoli.items() %}
           <details class="analisi-gruppo">
             <summary class="gruppo-header">
@@ -71,7 +84,7 @@
               {% for calcolo in gruppo %}
               <div class="calcolo-card">
                 <div class="selection-checkbox" style="display: none;">
-                  <input type="checkbox" onchange="handleSelectionChange(this)" data-id="{{ calcolo.id }}" data-title="{{ calcolo.serie_nome }}">
+                  <input type="checkbox" onchange="handleSelectionChange(this)" data-id="{{ calcolo.id }}" data-title="{{ calcolo.serie_nome }}" data-statistics="{{ calcolo.statistiche|tojson|safe }}">
                 </div>
                 <div class="calcolo-header">
                   <div class="serie-info">
@@ -81,7 +94,7 @@
                 </div>
                 
                 <div class="calcolo-content">
-                  {% if calcolo.statistiche and calcolo.statistiche.media is defined %}
+                  {% if calcolo.statistiche %}
                   <div class="stats-preview">
                     <div class="stat-item">
                       <span class="stat-label">Media:</span>
@@ -96,6 +109,52 @@
                       <span class="stat-value">{{ calcolo.statistiche.count }}</span>
                     </div>
                   </div>
+
+                  {% if calcolo.statistiche.correlazioni or calcolo.statistiche.t_tests %}
+                  <div class="statistical-metrics">
+                    <button class="note-toggle" onclick="toggleMetrics(this)">
+                      <i class="fas fa-chevron-down"></i>
+                      <span>Test Statistici</span>
+                    </button>
+                    <div class="note-content">
+                      {% if calcolo.statistiche.correlazioni %}
+                      <div class="base-metrics">
+                        {% for altra_serie, correlazione in calcolo.statistiche.correlazioni.items() %}
+                        <div class="metric-pill correlation {% if correlazione|float > 0.7 %}high-positive{% elif correlazione|float < -0.7 %}high-negative{% endif %}">
+                          <i class="fas fa-link"></i>
+                          <span>{{ altra_serie }}</span>
+                          <span>r = {{ "%.4f"|format(correlazione|float) }}</span>
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+
+                      {% if calcolo.statistiche.t_tests %}
+                      <div class="base-metrics">
+                        {% for altra_serie, test in calcolo.statistiche.t_tests.items() %}
+                        <div class="metric-pill t-test {% if test.p_value < 0.05 %}significant{% endif %}">
+                          <i class="fas fa-calculator"></i>
+                          <span>{{ altra_serie }}</span>
+                          <span>t = {{ "%.4f"|format(test.t_statistic|float) }}</span>
+                          <small class="{% if test.p_value < 0.05 %}significant{% endif %}">
+                            p = {{ "%.4f"|format(test.p_value|float) }}
+                          </small>
+                        </div>
+
+                        {% if test.cohens_d %}
+                        <div class="metric-pill effect-size {% if test.cohens_d|abs > 0.8 %}large{% elif test.cohens_d|abs > 0.5 %}medium{% elif test.cohens_d|abs > 0.2 %}small{% endif %}">
+                          <i class="fas fa-ruler-horizontal"></i>
+                          <span>Effect Size ({{ altra_serie }})</span>
+                          <span>d = {{ "%.4f"|format(test.cohens_d|float) }}</span>
+                          <small>{{ test.effect_size }}</small>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
                   {% endif %}
                 </div>
 
@@ -188,6 +247,105 @@
         document.getElementById('selectedCount').textContent = count;
         document.getElementById('exportSelected').style.display = 
           count > 0 ? 'inline-flex' : 'none';
+        
+        // Mostra/nascondi la sezione delle analisi statistiche
+        const analysisSection = document.getElementById('statistical-analysis-section');
+        if (count > 1) {
+          analysisSection.style.display = 'block';
+          updateStatisticalAnalysis();
+        } else {
+          analysisSection.style.display = 'none';
+        }
+      }
+
+      function updateStatisticalAnalysis() {
+        if (selectedItems.size < 2) return;
+
+        // Recupera i dati statistici dalle card selezionate
+        const selectedStats = Array.from(selectedItems).map(id => {
+          const card = document.querySelector(`.calcolo-card input[data-id="${id}"]`).closest('.calcolo-card');
+          return {
+            id: id,
+            title: card.querySelector('.serie-info h3').textContent.replace('Serie: ', ''),
+            stats: JSON.parse(card.dataset.statistics || '{}')
+          };
+        });
+
+        // Aggiorna sezione correlazioni
+        const correlationsContent = document.getElementById('correlations-content');
+        correlationsContent.innerHTML = generateCorrelationsHTML(selectedStats);
+
+        // Aggiorna sezione test statistici
+        const testsContent = document.getElementById('tests-content');
+        testsContent.innerHTML = generateTestsHTML(selectedStats);
+      }
+
+      function generateCorrelationsHTML(stats) {
+        let html = '<div class="correlation-guide">';
+        html += '<div class="guide-item"><i class="fas fa-info-circle"></i><span>r > 0.7 o r < -0.7 indica una correlazione forte</span></div>';
+        html += '</div><div class="correlations-grid">';
+        
+        for (let i = 0; i < stats.length; i++) {
+          for (let j = i + 1; j < stats.length; j++) {
+            const stat1 = stats[i];
+            const stat2 = stats[j];
+            if (stat1.stats.correlazioni && stat1.stats.correlazioni[stat2.title]) {
+              const corr = stat1.stats.correlazioni[stat2.title];
+              const corrClass = corr > 0.7 ? 'high-positive' : (corr < -0.7 ? 'high-negative' : '');
+              
+              html += `
+                <div class="correlation-item ${corrClass}">
+                  <div class="correlation-info">
+                    <span class="correlation-label">${stat1.title} - ${stat2.title}</span>
+                    <span class="correlation-value">r = ${corr.toFixed(4)}</span>
+                  </div>
+                </div>`;
+            }
+          }
+        }
+        
+        html += '</div>';
+        return html;
+      }
+
+      function generateTestsHTML(stats) {
+        let html = '<div class="correlation-guide">';
+        html += '<div class="guide-item"><i class="fas fa-info-circle"></i><span>p < 0.05 indica una differenza statisticamente significativa</span></div>';
+        html += '<div class="guide-item"><i class="fas fa-ruler-horizontal"></i><span>Effect size (d): <0.2 trascurabile, 0.2-0.5 piccolo, 0.5-0.8 medio, >0.8 grande</span></div>';
+        html += '</div><div class="tests-grid">';
+        
+        for (let i = 0; i < stats.length; i++) {
+          for (let j = i + 1; j < stats.length; j++) {
+            const stat1 = stats[i];
+            const stat2 = stats[j];
+            if (stat1.stats.t_tests && stat1.stats.t_tests[stat2.title]) {
+              const test = stat1.stats.t_tests[stat2.title];
+              const isSignificant = test.p_value < 0.05;
+              let effectSizeClass = '';
+              if (Math.abs(test.cohens_d) > 0.8) effectSizeClass = 'large';
+              else if (Math.abs(test.cohens_d) > 0.5) effectSizeClass = 'medium';
+              else if (Math.abs(test.cohens_d) > 0.2) effectSizeClass = 'small';
+              
+              html += `
+                <div class="test-item">
+                  <h4>${stat1.title} vs ${stat2.title}</h4>
+                  <div class="test-details">
+                    <div class="test-stat">
+                      <span>t-stat: ${test.t_statistic.toFixed(4)}</span>
+                      <span>p-value: ${test.p_value.toFixed(4)}</span>
+                    </div>
+                    <div class="effect-size ${effectSizeClass}">
+                      <span>Cohen's d: ${test.cohens_d.toFixed(4)}</span>
+                      <span class="effect-label">${test.effect_size}</span>
+                    </div>
+                  </div>
+                </div>`;
+            }
+          }
+        }
+        
+        html += '</div>';
+        return html;
       }
 
       function esportaCalcolo(id) {
@@ -212,6 +370,19 @@
       }
 
       function toggleNote(btn) {
+        var content = btn.nextElementSibling;
+        if (!content.style.height || content.style.height === '0px') {
+          content.classList.add('active');
+          content.style.height = content.scrollHeight + 'px';
+          btn.classList.add('active');
+        } else {
+          content.classList.remove('active');
+          content.style.height = '0px';
+          btn.classList.remove('active');
+        }
+      }
+
+      function toggleMetrics(btn) {
         var content = btn.nextElementSibling;
         if (!content.style.height || content.style.height === '0px') {
           content.classList.add('active');

@@ -2888,3 +2888,126 @@ details[open] .section-content {
   border-radius: 4px;
   font-size: 0.9rem;
 }
+
+/* Stili per la sezione dei test statistici */
+.statistical-tests-section {
+    margin-top: 2rem;
+}
+
+.correlations-card,
+.tests-card {
+    margin-bottom: 2rem;
+}
+
+.correlation-group,
+.test-group {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.correlation-group h3,
+.test-group h3 {
+    color: #2d3748;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.correlations-grid,
+.tests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.correlation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 6px;
+    border-left: 4px solid #e2e8f0;
+}
+
+.correlation-item.high-positive {
+    border-left-color: #38a169;
+    background: #f0fff4;
+}
+
+.correlation-item.high-negative {
+    border-left-color: #e53e3e;
+    background: #fff5f5;
+}
+
+.test-item {
+    background: white;
+    padding: 1.2rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.test-item h4 {
+    margin-bottom: 0.8rem;
+    color: #2d3748;
+}
+
+.test-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.test-stat,
+.effect-size {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.test-stat {
+    background: #f7fafc;
+}
+
+.effect-size {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.effect-size.large {
+    background: #fed7d7;
+    color: #9b2c2c;
+}
+
+.effect-size.medium {
+    background: #feebc8;
+    color: #975a16;
+}
+
+.effect-size.small {
+    background: #e6ffed;
+    color: #276749;
+}
+
+.effect-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .correlations-grid,
+    .tests-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .test-stat {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

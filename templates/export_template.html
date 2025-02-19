@@ -89,38 +89,6 @@
                         <li>Massimo: {{ "%.4f"|format(stats.min_max.max|float) }}</li>
                     </ul>
                 </div>
-
-                {% if stats.correlazioni %}
-                <div class="stats-section">
-                    <h3>Correlazioni</h3>
-                    <ul>
-                    {% for serie, corr in stats.correlazioni.items() %}
-                        <li>{{ serie }}: {{ "%.4f"|format(corr|float) }}</li>
-                    {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {% if stats.t_tests %}
-                <div class="stats-section">
-                    <h3>T-Test</h3>
-                    <ul>
-                    {% for serie, test in stats.t_tests.items() %}
-                        <li>
-                            <strong>{{ serie }}</strong><br>
-                            {% if test is mapping %}
-                                statistica-t: {{ "%.4f"|format(test.t_stat|float) if test.t_stat is defined else "N/A" }}<br>
-                                p-value: {{ "%.4f"|format(test.p_value|float) if test.p_value is defined else "N/A" }}<br>
-                                {% if test.cohens_d is defined %}
-                                Cohen's d: {{ "%.4f"|format(test.cohens_d|float) }}<br>
-                                Effect size: {{ test.effect_size if test.effect_size is defined else "N/A" }}
-                                {% endif %}
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
             </div>
 
             <div class="plot-grid">
@@ -149,6 +117,62 @@
             {% endif %}
         </div>
         {% endfor %}
+
+        <!-- Sezione Correlazioni e Test Statistici -->
+        {% if calcoli|length > 1 %}
+        <div class="statistical-tests-section">
+            <div class="result-card correlations-card">
+                <h2>Analisi delle Correlazioni</h2>
+                {% for calcolo in calcoli %}
+                    {% set stats = calcolo.statistiche|from_json %}
+                    {% if stats and stats.correlazioni %}
+                    <div class="correlation-group">
+                        <h3>Correlazioni per {{ calcolo.serie_nome }}</h3>
+                        <div class="correlations-grid">
+                        {% for serie, corr in stats.correlazioni.items() %}
+                            <div class="correlation-item {% if corr|float > 0.7 %}high-positive{% elif corr|float < -0.7 %}high-negative{% endif %}">
+                                <span class="correlation-label">{{ serie }}</span>
+                                <span class="correlation-value">{{ "%.4f"|format(corr|float) }}</span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="result-card tests-card">
+                <h2>Test Statistici</h2>
+                {% for calcolo in calcoli %}
+                    {% set stats = calcolo.statistiche|from_json %}
+                    {% if stats and stats.t_tests %}
+                    <div class="test-group">
+                        <h3>T-Test per {{ calcolo.serie_nome }}</h3>
+                        <div class="tests-grid">
+                        {% for serie, test in stats.t_tests.items() %}
+                            <div class="test-item">
+                                <h4>{{ serie }}</h4>
+                                <div class="test-details">
+                                    <div class="test-stat">
+                                        <span>t-stat: {{ "%.4f"|format(test.t_stat|float) }}</span>
+                                        <span>p-value: {{ "%.4f"|format(test.p_value|float) }}</span>
+                                    </div>
+                                    {% if test.cohens_d %}
+                                    <div class="effect-size {{ test.effect_size|lower }}">
+                                        <span>Cohen's d: {{ "%.4f"|format(test.cohens_d|float) }}</span>
+                                        <span class="effect-label">{{ test.effect_size }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
         
         <footer>
             <p>Report generato il {{ date.strftime('%d/%m/%Y %H:%M') }}</p>

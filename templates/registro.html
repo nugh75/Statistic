@@ -97,7 +97,11 @@
                 <div class="calcolo-header">
                   <div class="serie-info">
                     <i class="fas fa-chart-line"></i>
-                    <h3>Serie: {{ calcolo.serie_nome }}</h3>
+                    <h3>
+                      <a href="{{ url_for('result', id=calcolo.id) }}" target="_blank" class="serie-link">
+                        Serie: {{ calcolo.serie_nome }}
+                      </a>
+                    </h3>
                   </div>
                 </div>
                 
@@ -224,9 +228,9 @@
                   <button class="btn btn-primary" onclick="toggleDetails(this)" title="Mostra/Nascondi Dettagli">
                     <i class="fas fa-chart-bar"></i>
                   </button>
-                  <div class="secondary-actions">
-                    <!-- Rimosso il pulsante btn-danger per l'eliminazione -->
-                  </div>
+                  <a href="{{ url_for('result', id=calcolo.id) }}" target="_blank" class="btn btn-secondary" title="Apri in nuova scheda">
+                    <i class="fas fa-external-link-alt"></i>
+                  </a>
                 </div>
                 <div class="card-metadata">
                   <span class="data">{{ calcolo.data_creazione.strftime('%d/%m/%Y %H:%M') }}</span>
@@ -457,9 +461,28 @@
 
       function toggleDetails(btn) {
         const card = btn.closest('.calcolo-card');
-        const input = card.querySelector('input[type="checkbox"]');
-        const calcoloId = input.dataset.id;
-        window.location.href = `/result/${calcoloId}`;
+        const visualizationsSection = card.querySelector('.visualizations-section');
+        const statisticalMetrics = card.querySelector('.statistical-metrics');
+        
+        if (visualizationsSection) {
+          if (visualizationsSection.style.display === 'none' || !visualizationsSection.style.display) {
+            visualizationsSection.style.display = 'block';
+            if (statisticalMetrics) {
+              statisticalMetrics.style.display = 'block';
+            }
+            btn.querySelector('i').classList.remove('fa-chart-bar');
+            btn.querySelector('i').classList.add('fa-times');
+            btn.title = 'Nascondi Dettagli';
+          } else {
+            visualizationsSection.style.display = 'none';
+            if (statisticalMetrics) {
+              statisticalMetrics.style.display = 'none';
+            }
+            btn.querySelector('i').classList.remove('fa-times');
+            btn.querySelector('i').classList.add('fa-chart-bar');
+            btn.title = 'Mostra Dettagli';
+          }
+        }
       }
 
       // Funzioni per la visualizzazione fullscreen

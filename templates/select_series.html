@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Seleziona Serie da Analizzare</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Seleziona Serie da Analizzare</h1>
+
+      <div class="info-box">
+        <h2>{{ nome }}</h2>
+        {% if note %}
+        <div class="note-box">
+          <p>{{ note }}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <form method="post" action="{{ url_for('index') }}">
+        <!-- Campi nascosti per i dati essenziali -->
+        <input type="hidden" name="step" value="process_selection">
+        <input type="hidden" name="nome" value="{{ nome }}">
+        <input type="hidden" name="note" value="{{ note }}">
+        
+        <div class="series-selection">
+          <h3>Serie Disponibili</h3>
+          <p class="help-text">Seleziona le serie che desideri analizzare:</p>
+          
+          <div class="series-grid">
+            {% for column in columns %}
+            <div class="series-item">
+              <label class="checkbox-container">
+                <input type="checkbox" name="selected_series" value="{{ column|e }}" data-column-name="{{ column }}">
+                <span class="checkmark"></span>
+                <span class="series-name" title="{{ column }}">{{ column }}</span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn" id="submitBtn" disabled>
+            <i class="fas fa-calculator"></i>
+            <span class="btn-text">Analizza Serie Selezionate</span>
+          </button>
+          <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            <span class="btn-text">Indietro</span>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        function updateSubmitButton() {
+          const checkedBoxes = document.querySelectorAll('input[type="checkbox"]:checked');
+          submitBtn.disabled = checkedBoxes.length === 0;
+          
+          // Log selected values for debugging
+          console.log('Selected values:', Array.from(checkedBoxes).map(cb => cb.value));
+        }
+        
+        checkboxes.forEach(checkbox => {
+          checkbox.addEventListener('change', updateSubmitButton);
+        });
+        
+        updateSubmitButton();
+      });
+    </script>
+  </body>
+</html>

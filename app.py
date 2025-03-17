@@ -17,6 +17,7 @@ from statistiche import StatisticheCalcolatore
 import logging
 from docx import Document
 from io import BytesIO
+from datetime import timedelta
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +38,7 @@ app = Flask(__name__,
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance', 'calcoli.db')
 
-# Configuration
+# Configurazione avanzata
 app.config.update(
     SECRET_KEY=os.environ.get('SECRET_KEY', 'dev_key_for_session_management'),
     SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',
@@ -47,7 +48,25 @@ app.config.update(
     TEMPLATES_AUTO_RELOAD=True,
     SESSION_COOKIE_SECURE=True,  # Only send cookie over HTTPS
     SESSION_COOKIE_HTTPONLY=True,  # Prevent JavaScript access to session cookie
-    SESSION_COOKIE_SAMESITE='Lax'  # Protect against CSRF
+    SESSION_COOKIE_SAMESITE='Lax',  # Protect against CSRF
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30),  # Aumenta durata sessione a 30 minuti
+    SESSION_TYPE='filesystem'  # Usa filesystem invece di memoria
+)
+
+# Aumenta la durata della sessione a 60 minuti e configura il salvataggio su filesystem
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'dev_key_for_session_management'),
+    SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    SEND_FILE_MAX_AGE_DEFAULT=0,
+    DEBUG=False,
+    TEMPLATES_AUTO_RELOAD=True,
+    SESSION_COOKIE_SECURE=False,  # Cambiato a False per supportare HTTP
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=60),
+    SESSION_TYPE='filesystem',
+    SESSION_FILE_DIR=tempfile.gettempdir()  # Directory temporanea per i file di sessione
 )
 
 # Add cache control headers for static files
@@ -82,6 +101,13 @@ def clear_session_if_needed():
     if not hasattr(app, '_session_cleared'):
         session.clear()
         app._session_cleared = True
+
+# Configura la sessione come permanente per ogni richiesta
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+    # Estendi la durata della sessione ad ogni richiesta
+    session.modified = True
 
 def generate_plots(data, title, all_series=None):
     plots = {}
@@ -182,199 +208,231 @@ def generate_correlation_matrix(all_series):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        if 'file' not in request.files:
-            flash("Nessun file caricato.")
-            return redirect(request.url)
-        
-        file = request.files['file']
-        nome = request.form.get('nome', 'Calcolo senza nome')
-        note = request.form.get('note', '')
-        
-        if file.filename == '':
-            flash("Nessun file selezionato.")
-            return redirect(request.url)
-        
-        if not (file.filename.endswith('.xls') or file.filename.endswith('.xlsx')):
-            flash("Per favore carica un file Excel (.xls o .xlsx)")
-            return redirect(request.url)
-        
-        try:
-            df = pd.read_excel(file)
-            logging.info(f"File caricato con successo: {file.filename}")
-            
-            if (df.empty):
-                flash("Il file Excel è vuoto")
-                return redirect(request.url)
-            
-            risultati = []
-            all_series = {}
-            
-            # Process data in batches
-            batch_size = 1000
-            for start in range(0, len(df), batch_size):
-                batch = df.iloc[start:start + batch_size]
+        # Gestione del caricamento iniziale del file
+        if 'file' in request.files:
+            try:
+                file = request.files['file']
+                nome = request.form.get('nome', 'Calcolo senza nome')
+                note = request.form.get('note', '')
                 
-                # Process each column in the batch
-                for colonna in batch.columns:
-                    try:
-                        dati = pd.to_numeric(batch[colonna], errors='coerce').dropna().tolist()
-                        if colonna in all_series:
-                            all_series[colonna].extend(dati)
-                        else:
-                            all_series[colonna] = dati
-                    except (ValueError, TypeError) as e:
-                        logging.warning(f"Errore di conversione nella colonna {colonna}: {str(e)}")
-                    except Exception as e:
-                        logging.error(f"Errore non previsto nella colonna {colonna}: {str(e)}")
-            
-            # Calcola la matrice di correlazione e t-test una sola volta
-            matrice_correlazione_img = None
-            matrice_ttest_img = None
-            effect_size_img = None
-            correlazioni = None
-            t_tests = None
-            legenda = {}
-            if len(all_series) > 1:
-                # Genera la matrice di correlazione
-                matrice_correlazione_img, legenda = generate_correlation_matrix(all_series)
-                correlazioni = StatisticheCalcolatore.calcola_correlazioni(all_series)
+                if file.filename == '':
+                    flash("Nessun file selezionato.")
+                    return redirect(request.url)
                 
-                # Calcola i t-test e genera i relativi grafici
-                t_tests = StatisticheCalcolatore.calcola_ttest_coppie(all_series)
+                if not (file.filename.endswith('.xls') or file.filename.endswith('.xlsx')):
+                    flash("Per favore carica un file Excel (.xls o .xlsx)")
+                    return redirect(request.url)
                 
-                # Calcola le dimensioni ottimali per la heatmap t-test
-                n_vars = len(all_series)
-                figsize_ttest = (min(12, max(8, n_vars * 1.2)), min(8, max(6, n_vars * 1.2)))
-                
-                # Genera heatmap t-test
-                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                    ttest_legenda = StatisticheCalcolatore.crea_heatmap_ttest(
-                        t_tests,
-                        tmp.name,
-                        use_etichette_brevi=True,
-                        figsize=figsize_ttest
-                    )
-                    with open(tmp.name, 'rb') as f:
-                        matrice_ttest_img = base64.b64encode(f.read()).decode('utf-8')
-                    os.unlink(tmp.name)
-                    
-                    # Aggiorna la legenda con le etichette dei t-test
-                    legenda.update(ttest_legenda)
-                
-                # Genera grafico effect size
-                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                    effect_legenda = StatisticheCalcolatore.crea_effect_size_plot(
-                        t_tests,
-                        tmp.name,
-                        use_etichette_brevi=True,
-                        figsize=(12, 6)
-                    )
-                    with open(tmp.name, 'rb') as f:
-                        effect_size_img = base64.b64encode(f.read()).decode('utf-8')
-                    os.unlink(tmp.name)
-                    
-                    # Aggiorna la legenda con le etichette dell'effect size
-                    legenda.update(effect_legenda)
+                df = pd.read_excel(file)
+                if df.empty:
+                    flash("Il file Excel è vuoto")
+                    return redirect(request.url)
 
-            # Ora processiamo ogni serie per le statistiche
-            for colonna, dati in all_series.items():
-                try:
-                    # Calcola statistiche
-                    statistiche = StatisticheCalcolatore.calcola_tutte_statistiche(dati)
-                    
-                    # Prepara il dizionario delle statistiche
-                    stats_dict = {
-                        'count': len(dati),
-                        'media': float(statistiche['media']),
-                        'mediana': float(statistiche['mediana']),
-                        'moda': [float(statistiche['moda'])] if isinstance(statistiche['moda'], (int, float)) else [float(x) for x in statistiche['moda']],
-                        'deviazione_standard_popolazione': float(statistiche['deviazione_standard_popolazione']),
-                        'deviazione_standard_campione': float(statistiche['deviazione_standard_campione']),
-                        'varianza_popolazione': float(statistiche['varianza_popolazione']),
-                        'varianza_campione': float(statistiche['varianza_campione']),
-                        'range': float(statistiche['range']),
-                        'quartili': {
-                            'Q1': float(statistiche['quartili']['Q1']),
-                            'Q2': float(statistiche['quartili']['Q2']),
-                            'Q3': float(statistiche['quartili']['Q3'])
-                        },
-                        'min_max': {
-                            'min': float(statistiche['min_max']['min']),
-                            'max': float(statistiche['min_max']['max'])
-                        }
-                    }
-                    
-                    # Genera i grafici individuali
-                    plots = generate_plots(dati, colonna)
-                    stats_dict['plots'] = plots
-                    
-                    # Aggiungi la matrice di correlazione a tutte le serie
-                    if matrice_correlazione_img:
-                        stats_dict['plots']['correlation'] = matrice_correlazione_img
-                        stats_dict['legenda'] = legenda
-                    
-                    # Aggiungi le correlazioni se disponibili
-                    if correlazioni and colonna in correlazioni:
-                        stats_dict['correlazioni'] = correlazioni[colonna]
-                    
-                    # Aggiungi i t-test se disponibili
-                    if t_tests and colonna in t_tests:
-                        stats_dict['t_tests'] = t_tests[colonna]
-                        # Aggiungi l'interpretazione dell'effect size per ogni t-test
-                        if isinstance(t_tests[colonna], dict):
-                            for serie, test_result in t_tests[colonna].items():
-                                if 'cohens_d' in test_result:
-                                    test_result['effect_size'] = StatisticheCalcolatore.interpreta_cohens_d(test_result['cohens_d'])
-                    
-                    # Aggiungi i nuovi grafici alle statistiche
-                    if matrice_ttest_img:
-                        stats_dict['plots']['ttest'] = matrice_ttest_img
-                    if effect_size_img:
-                        stats_dict['plots']['effect_size'] = effect_size_img
-                    
-                    # Serializza i dati
-                    stats_json = json.dumps(stats_dict)
-                    valori_json = json.dumps(dati)
-                    
-                    # Crea il record nel database - Rimosso il campo risultato non necessario
-                    calcolo = Calcolo(
-                        nome=nome,
-                        note=note,
-                        serie_nome=colonna,
-                        valori=valori_json,
-                        statistiche=stats_json
-                    )
-                    db.session.add(calcolo)
-                    
-                    # Aggiungi ai risultati per la visualizzazione
-                    risultati.append({
-                        'serie': colonna,
-                        'statistiche': stats_dict
-                    })
-                    
-                except Exception as e:
-                    logging.error(f"Errore nell'elaborazione della serie {colonna}: {str(e)}")
-                    flash(f"Errore nell'elaborazione della serie {colonna}: {str(e)}")
-                    continue
-            
-            if not risultati:
-                flash("Nessun dato numerico valido trovato nel file.")
+                # Log before cleaning
+                logging.info(f"Colonne originali: {df.columns.tolist()}")
+                
+                # Pulisci i nomi delle colonne rimuovendo caratteri speciali e spazi extra
+                df.columns = [col.strip().replace('\r', ' ').replace('\n', ' ').strip() for col in df.columns]
+                df.columns = [' '.join(col.split()) for col in df.columns]  # Rimuove spazi multipli
+                
+                # Log after cleaning
+                logging.info(f"Colonne dopo pulizia: {df.columns.tolist()}")
+                
+                empty_cols = df.columns[df.isna().all()].tolist()
+                if empty_cols:
+                    flash(f"Le seguenti colonne sono vuote: {', '.join(empty_cols)}")
+                
+                # Store DataFrame in session
+                session['temp_data'] = {
+                    'columns': df.columns.tolist(),
+                    'nome': nome,
+                    'note': note,
+                    'filename': file.filename
+                }
+                session['temp_df'] = df.to_json()
+                session.modified = True
+                
+                logging.info(f"File caricato: {file.filename}, Colonne pulite: {df.columns.tolist()}")
+                
+                return render_template('select_series.html',
+                                    columns=df.columns.tolist(),
+                                    nome=nome,
+                                    note=note)
+                                    
+            except Exception as e:
+                logging.error(f"Errore durante il caricamento del file: {str(e)}")
+                flash(f"Errore durante la lettura del file: {str(e)}")
                 return redirect(request.url)
+        
+        # Controllo specifico per il form di selezione serie
+        if request.form.get('step') == 'process_selection':
+            logging.info(f"Form data ricevuta: {dict(request.form)}")
             
             try:
-                db.session.commit()
-                flash("Calcoli salvati con successo!", "success")
-                return redirect(url_for('registro'))
-            except Exception as e:
-                db.session.rollback()
-                logging.error(f"Errore nel salvataggio nel database: {str(e)}")
-                flash("Errore nel salvataggio dei risultati nel database.")
-                return redirect(request.url)
+                # Recupera i dati dalla sessione
+                df = pd.read_json(session.get('temp_df', '{}'))
+                temp_data = session.get('temp_data', {})
                 
-        except Exception as e:
-            logging.error(f"Errore generale durante l'elaborazione del file: {str(e)}")
-            flash(f"Errore durante l'elaborazione del file: {str(e)}")
-            return redirect(request.url)
+                # Log column names from session
+                logging.info(f"Colonne nel DataFrame dalla sessione: {df.columns.tolist()}")
+                
+                if df.empty or not temp_data:
+                    logging.error("Dati della sessione mancanti o invalidi")
+                    flash("Dati non validi o sessione scaduta. Ricarica il file.")
+                    return redirect(url_for('index'))
+                
+                nome = temp_data.get('nome', 'Calcolo senza nome')
+                note = temp_data.get('note', '')
+                selected_series = request.form.getlist('selected_series')
+                logging.info(f"Serie selezionate prima della pulizia: {selected_series}")
+                
+                if not selected_series:
+                    logging.error("Nessuna serie selezionata")
+                    flash("Seleziona almeno una serie da analizzare.")
+                    return redirect(url_for('index'))
+                
+                # Pulisci i nomi delle colonne nel DataFrame come fatto durante il caricamento
+                df.columns = [col.strip().replace('\r', ' ').replace('\n', ' ').strip() for col in df.columns]
+                df.columns = [' '.join(col.split()) for col in df.columns]
+                
+                # Clean selected series names to match cleaned column names
+                selected_series = [' '.join(serie.strip().replace('\r', ' ').replace('\n', ' ').split()) for serie in selected_series]
+                logging.info(f"Serie selezionate dopo la pulizia: {selected_series}")
+                logging.info(f"Colonne disponibili nel DataFrame: {df.columns.tolist()}")
+                
+                # Verifica corrispondenza
+                for serie in selected_series:
+                    if serie not in df.columns:
+                        logging.error(f"Serie '{serie}' non trovata nelle colonne disponibili")
+                        flash(f"Serie '{serie}' non trovata. Riprova la selezione.")
+                        return redirect(url_for('index'))
+                
+                risultati = []
+                all_series = {}
+                
+                # Process data and continue with existing logic...
+                batch_size = 1000
+                for colonna in selected_series:
+                    logging.info(f"Processamento colonna: {colonna}")
+                    if colonna not in df.columns:
+                        logging.error(f"Colonna {colonna} non trovata nel DataFrame")
+                        continue
+                        
+                    # Convert series to numeric, dropping non-numeric values
+                    serie = pd.to_numeric(df[colonna], errors='coerce')
+                    dati = serie.dropna().tolist()
+                    
+                    if not dati:
+                        logging.warning(f"La serie '{colonna}' non contiene dati numerici validi.")
+                        flash(f"La serie '{colonna}' non contiene dati numerici validi.")
+                        continue
+                        
+                    if len(dati) > batch_size:
+                        dati = dati[:batch_size]
+                        flash(f"La serie '{colonna}' è stata limitata a {batch_size} valori.")
+                    
+                    # Perform statistical calculations for each series
+                    try:
+                        logging.info(f"Calcolo statistiche per {colonna}")
+                        statistiche = StatisticheCalcolatore.calcola_tutte_statistiche(dati)
+                        # Generate plots
+                        plots = generate_plots(dati, colonna)
+                        statistiche['plots'] = plots
+                        
+                        # Save series data and statistics
+                        all_series[colonna] = {
+                            'dati': dati,
+                            'statistiche': statistiche
+                        }
+                        logging.info(f"Statistiche calcolate con successo per {colonna}")
+                    except Exception as e:
+                        logging.error(f"Errore nel calcolo delle statistiche per {colonna}: {str(e)}")
+                        flash(f"Errore nel calcolo delle statistiche per la serie '{colonna}': {str(e)}")
+                        continue
+
+                # Analisi statistica per le serie selezionate
+                if len(all_series) > 1:
+                    logging.info("Calcolo correlazioni e test statistici per serie multiple")
+                    # Prima generiamo la matrice di correlazione
+                    series_data = {name: serie_info['dati'] for name, serie_info in all_series.items()}
+                    matrice_correlazione_img, legenda = generate_correlation_matrix(series_data)
+                    
+                    # Poi calcoliamo correlazioni e t-test
+                    correlazioni = StatisticheCalcolatore.calcola_correlazioni(series_data)
+                    t_tests = StatisticheCalcolatore.calcola_ttest_coppie(series_data)
+                    
+                    # Aggiorniamo le statistiche per ogni serie
+                    for colonna, serie_info in all_series.items():
+                        statistiche = serie_info['statistiche']
+                        # Genera i plot includendo tutte le serie per confronto
+                        plots = generate_plots(serie_info['dati'], colonna, series_data)
+                        statistiche['plots'] = plots
+                        statistiche['correlazioni'] = correlazioni.get(colonna, {})
+                        statistiche['t_tests'] = t_tests.get(colonna, {})
+                        
+                        if matrice_correlazione_img:
+                            statistiche['plots']['correlation'] = matrice_correlazione_img
+                        statistiche['legenda'] = legenda
+                        
+                        # Aggiorniamo le statistiche nel dizionario
+                        all_series[colonna]['statistiche'] = statistiche
+                        logging.info(f"Generati grafici completi per {colonna} con t-test e effect size")
+                
+                # Salvataggio nel database
+                saved_count = 0
+                for colonna, serie_info in all_series.items():
+                    try:
+                        dati = serie_info['dati']
+                        statistiche = serie_info['statistiche']
+                        
+                        # Serializza i dati
+                        stats_json = json.dumps(statistiche)
+                        valori_json = json.dumps(dati)
+                        
+                        # Crea il record nel database
+                        calcolo = Calcolo(
+                            nome=nome,
+                            note=note,
+                            serie_nome=colonna,
+                            valori=valori_json,
+                            statistiche=stats_json
+                        )
+                        db.session.add(calcolo)
+                        saved_count += 1
+                        logging.info(f"Calcolo per {colonna} aggiunto al database con t-test e correlazioni")
+                        
+                    except Exception as e:
+                        logging.error(f"Errore nel salvataggio dei dati per {colonna}: {str(e)}")
+                        flash(f"Errore nel salvataggio dei dati per la serie {colonna}")
+                        continue
+                
+                try:
+                    if saved_count > 0:
+                        db.session.commit()
+                        logging.info("Commit al database completato con successo")
+                        flash(f"Salvati con successo {saved_count} calcoli", "success")
+                        return redirect(url_for('registro'))
+                    else:
+                        logging.error("Nessun calcolo salvato nel database")
+                        flash("Nessun calcolo è stato salvato. Verifica i dati e riprova.")
+                        return redirect(url_for('index'))
+                        
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"Errore nel commit al database: {str(e)}")
+                    flash("Errore nel salvataggio dei risultati nel database.")
+                    return redirect(url_for('index'))
+                    
+            except Exception as e:
+                logging.error(f"Errore generale durante l'elaborazione del file: {str(e)}")
+                flash(f"Errore durante l'elaborazione del file: {str(e)}")
+                return redirect(url_for('index'))
+            finally:
+                # Clear session data only after successful processing
+                if 'temp_df' in session and 'temp_data' in session:
+                    session.pop('temp_df', None)
+                    session.pop('temp_data', None)
+                    session.modified = True
     
     return render_template('index.html')
 
@@ -388,13 +446,29 @@ def registro():
                 try:
                     stats = json.loads(calcolo.statistiche)
                     if isinstance(stats, dict):
-                        # Ensure all numeric fields are properly converted to float
-                        if 'media' in stats:
-                            stats['media'] = float(stats['media'])
-                        if 'deviazione_standard_popolazione' in stats:
-                            stats['deviazione_standard_popolazione'] = float(stats['deviazione_standard_popolazione'])
-                        if 'count' in stats:
-                            stats['count'] = int(stats['count'])
+                        # Ensure all required fields are present and properly formatted
+                        required_fields = {
+                            'count': int,
+                            'media': float,
+                            'mediana': float,
+                            'deviazione_standard_popolazione': float,
+                            'deviazione_standard_campione': float,
+                            'varianza_popolazione': float,
+                            'varianza_campione': float,
+                            'range': float,
+                            'quartili': dict,
+                            'min_max': dict,
+                            'plots': dict
+                        }
+                        
+                        for field, convert_type in required_fields.items():
+                            if field in stats:
+                                if field in ['quartili', 'min_max', 'plots']:
+                                    continue  # Skip conversion for dictionaries
+                                try:
+                                    stats[field] = convert_type(stats[field])
+                                except (TypeError, ValueError):
+                                    stats[field] = None
                         calcolo.statistiche = stats
                     else:
                         calcolo.statistiche = {}
@@ -893,7 +967,7 @@ def result(id):
         'statistiche': json.loads(calcolo.statistiche) if calcolo.statistiche else {}
     }]
     
-    return render_template('risultato.html', 
+    return render_template('result.html', 
                          risultati=risultati,
                          nome=calcolo.nome,
                          note=calcolo.note)

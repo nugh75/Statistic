@@ -390,45 +390,63 @@ class StatisticheCalcolatore:
         }
 
     @staticmethod
-    def calcola_ttest_coppie(serie_dati: Dict[str, List[float]]) -> Dict[str, Dict[str, Dict[str, float]]]:
+    def calcola_ttest_coppie(series_data):
         """
-        Calcola il t-test per ogni coppia di serie.
+        Calcola i t-test e effect size tra tutte le coppie di serie.
         
         Args:
-            serie_dati: Dizionario con nome serie come chiave e lista di valori come valore
+            series_data: Dizionario con nome serie come chiave e lista di valori come valore
             
         Returns:
-            Dict: Dizionario strutturato come:
-                 {serie1: {serie2: {"t_statistic": float, "p_value": float, "cohens_d": float, "effect_size": str}}}
+            dict: Dizionario dei risultati dei t-test e effect size per ogni coppia
         """
-        result = {}
+        results = {}
+        series_names = list(series_data.keys())
         
-        # Trova la lunghezza minima tra tutte le serie
-        min_length = min(len(values) for values in serie_dati.values())
+        for i, name1 in enumerate(series_names):
+            results[name1] = {}
+            for name2 in series_names[i+1:]:
+                # Calcola t-test
+                t_stat, p_value = stats.ttest_ind(series_data[name1], series_data[name2])
+                
+                # Calcola Cohen's d (effect size)
+                n1, n2 = len(series_data[name1]), len(series_data[name2])
+                var1, var2 = np.var(series_data[name1], ddof=1), np.var(series_data[name2], ddof=1)
+                
+                # Pooled standard deviation
+                pooled_sd = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
+                
+                # Cohen's d
+                cohens_d = (np.mean(series_data[name1]) - np.mean(series_data[name2])) / pooled_sd
+                
+                # Interpretazione dell'effect size
+                if abs(cohens_d) < 0.2:
+                    effect_size = "Effetto trascurabile"
+                elif abs(cohens_d) < 0.5:
+                    effect_size = "Effetto piccolo"
+                elif abs(cohens_d) < 0.8:
+                    effect_size = "Effetto medio"
+                else:
+                    effect_size = "Effetto grande"
+                
+                results[name1][name2] = {
+                    't_statistic': float(t_stat),
+                    'p_value': float(p_value),
+                    'cohens_d': float(cohens_d),
+                    'effect_size': effect_size
+                }
+                
+                # Aggiungi anche il risultato inverso per facilitare l'accesso
+                if name2 not in results:
+                    results[name2] = {}
+                results[name2][name1] = {
+                    't_statistic': float(-t_stat),  # Inverti il segno per la direzione opposta
+                    'p_value': float(p_value),      # p-value rimane lo stesso
+                    'cohens_d': float(-cohens_d),   # Inverti il segno per la direzione opposta
+                    'effect_size': effect_size
+                }
         
-        # Tronca tutte le serie alla lunghezza minima
-        adjusted_data = {
-            name: values[:min_length] 
-            for name, values in serie_dati.items()
-        }
-        
-        # Calcola t-test per ogni coppia di serie
-        for serie1 in adjusted_data:
-            result[serie1] = {}
-            for serie2 in adjusted_data:
-                if serie1 != serie2:
-                    try:
-                        # Calcola t-test con effect size
-                        test_results = StatisticheCalcolatore.calcola_ttest(
-                            adjusted_data[serie1],
-                            adjusted_data[serie2]
-                        )
-                        result[serie1][serie2] = test_results
-                    except Exception as e:
-                        print(f"Error calculating t-test between {serie1} and {serie2}: {str(e)}")
-                        continue
-        
-        return result
+        return results
 
     @staticmethod
     def crea_heatmap_correlazione(correlazioni: Dict[str, Dict[str, float]], percorso_file: str, use_etichette_brevi: bool = True, 
@@ -951,3 +969,131 @@ class StatisticheCalcolatore:
             f.write(html_content)
         
         return html_path
+
+def generate_plots(data, title, all_series=None):
+    plots = {}
+    plt.style.use('seaborn')  # Usa uno stile pulito e moderno
+    
+    # Reset any existing plots
+    plt.clf()
+    
+    # 1. Histogram with KDE and normal distribution
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.histplot(data=data, stat='density', kde=True, ax=ax, color='#3498db')
+    
+    # Add normal distribution curve
+    xmin, xmax = ax.get_xlim()
+    x = np.linspace(xmin, xmax, 100)
+    mu, std = stats.norm.fit(data)
+    p = stats.norm.pdf(x, mu, std)
+    ax.plot(x, p, 'r-', lw=2, label='Distribuzione Normale')
+    ax.set_title(f'Distribuzione dei Dati - {title}', pad=20)
+    ax.legend()
+    
+    # Save to base64
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.close(fig)
+    plots['histogram'] = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+    
+    # 2. Box plot
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(data=data, ax=ax, color='#3498db')
+    ax.set_title(f'Box Plot - {title}', pad=20)
+    
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.close(fig)
+    plots['boxplot'] = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+    
+    # 3. Q-Q Plot
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(10, 6))
+    stats.probplot(data, dist="norm", plot=ax)
+    ax.set_title(f'Q-Q Plot - {title}', pad=20)
+    
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.close(fig)
+    plots['qqplot'] = base64.b64encode(buf.getvalue()).decode('utf-8')
+    buf.close()
+    
+    # 4. T-test distribution (se ci sono altre serie)
+    if all_series and len(all_series) > 1:
+        plt.clf()
+        fig, axes = plt.subplots(2, 1, figsize=(12, 10))
+        fig.suptitle(f'Test Statistici - {title}', y=1.02, fontsize=14)
+        
+        # T-test plot
+        t_stats = []
+        p_values = []
+        pair_labels = []
+        
+        for other_name, other_data in all_series.items():
+            if other_name != title:
+                t_stat, p_val = stats.ttest_ind(data, other_data)
+                t_stats.append(abs(t_stat))  # Usiamo il valore assoluto per il plot
+                p_values.append(p_val)
+                pair_labels.append(f'{title} vs {other_name}')
+        
+        # Plot t-statistics
+        axes[0].bar(pair_labels, t_stats, color='#3498db')
+        axes[0].set_title('T-statistics')
+        axes[0].tick_params(axis='x', rotation=45)
+        axes[0].axhline(y=2, color='r', linestyle='--', label='Soglia critica (t=2)')
+        axes[0].legend()
+        
+        # Plot p-values
+        axes[1].bar(pair_labels, p_values, color='#2ecc71')
+        axes[1].set_title('P-values')
+        axes[1].tick_params(axis='x', rotation=45)
+        axes[1].axhline(y=0.05, color='r', linestyle='--', label='Soglia significatività (p=0.05)')
+        axes[1].legend()
+        
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+        plt.close(fig)
+        plots['t_test'] = base64.b64encode(buf.getvalue()).decode('utf-8')
+        buf.close()
+        
+        # 5. Effect Size plot
+        plt.clf()
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        effect_sizes = []
+        for other_name, other_data in all_series.items():
+            if other_name != title:
+                n1, n2 = len(data), len(other_data)
+                var1, var2 = np.var(data, ddof=1), np.var(other_data, ddof=1)
+                # Pooled standard deviation
+                pooled_sd = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
+                # Cohen's d
+                d = (np.mean(data) - np.mean(other_data)) / pooled_sd
+                effect_sizes.append(abs(d))  # Usiamo il valore assoluto per il plot
+        
+        # Crea il plot con colori basati sulla magnitudine dell'effect size
+        colors = ['#3498db' if d < 0.2 else '#f1c40f' if d < 0.5 
+                 else '#e67e22' if d < 0.8 else '#e74c3c' for d in effect_sizes]
+        
+        bars = ax.bar(pair_labels, effect_sizes, color=colors)
+        ax.set_title("Effect Size (Cohen's d)", pad=20)
+        ax.tick_params(axis='x', rotation=45)
+        
+        # Aggiungi linee di riferimento per le soglie dell'effect size
+        ax.axhline(y=0.2, color='#3498db', linestyle='--', alpha=0.5, label='Small (0.2)')
+        ax.axhline(y=0.5, color='#f1c40f', linestyle='--', alpha=0.5, label='Medium (0.5)')
+        ax.axhline(y=0.8, color='#e74c3c', linestyle='--', alpha=0.5, label='Large (0.8)')
+        ax.legend()
+        
+        plt.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+        plt.close(fig)
+        plots['effect_size'] = base64.b64encode(buf.getvalue()).decode('utf-8')
+        buf.close()
+    
+    return plots
